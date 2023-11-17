@@ -14,8 +14,6 @@ def get_base_config(task, language_prior):
     task_config_file = None
     if task in ["regression", None]:
         task_config_file = "config_regression.json"
-    elif task in ["control"]:
-        task_config_file = "config_control.json"
     else:
         # Custom tasks use config_common.json.
         task_config_file = "config_common.json"

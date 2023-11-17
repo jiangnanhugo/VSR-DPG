@@ -3,7 +3,7 @@ from copy import deepcopy
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils.validation import check_is_fitted
 
-from cvdso import DeepSymbolicOptimizer
+from cvdso.core import DeepSymbolicOptimizer
 
 
 class DeepSymbolicRegressor(DeepSymbolicOptimizer,

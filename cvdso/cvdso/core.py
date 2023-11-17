@@ -21,7 +21,7 @@ from cvdso.controller import Controller
 from cvdso.train import learn
 from cvdso.prior import make_prior
 from cvdso.program import Program
-from cvdso.config import load_config
+from cvdso.config_utils import load_config
 from cvdso.tf_state_manager import make_state_manager as manager_make_state_manager
 
 
@@ -58,11 +58,11 @@ class DeepSymbolicOptimizer(object):
 
     def generate_and_set_Xy_pairs(self):
         self.n_samples, self.batch_size = self.config_training['n_samples'], self.config_training['batch_size']
-        X_train = self.dataX.randn(sample_size=self.n_samples)
+        X_train = self.dataX.randn(sample_size=self.n_samples).T
         y_train = self.data_query_oracle.evaluate(X_train)
-        X_test = self.dataX.randn(sample_size=self.batch_size)
+        X_test = self.dataX.randn(sample_size=self.batch_size).T
         y_test = self.data_query_oracle.evaluate(X_test)
-        y_test_noiseless = self.data_query_oracle.evaluate_noiseless(X_test)
+        y_test_noiseless = y_test
         # print("_".join(['regression', self.data_query_oracle._get_eq_name().split('/')[-1], self.data_query_oracle.noise_type,
         #                       str(self.data_query_oracle.noise_scale)])
         self.config_task['dataset'] = {
@@ -104,12 +104,13 @@ class DeepSymbolicOptimizer(object):
 
         # Train the model
         result = {"seed": self.config_experiment["seed"]}  # Seed listed first
-        result.update(learn(self.sess,
+        result_dict = learn(self.sess,
                             self.controller,
                             self.pool,
                             self.gp_controller,
                             self.output_file,
-                            **self.config_training))
+                            **self.config_training)
+        result.update(result_dict)
         return result
 
     def set_config(self, config):

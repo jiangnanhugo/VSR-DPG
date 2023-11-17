@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 
-from cvdso import DeepSymbolicRegressor
+from cvdso.core import DeepSymbolicRegressor
 from cvdso.test.generate_test_data import CONFIG_TRAINING_OVERRIDE
 
 

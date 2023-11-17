@@ -9,26 +9,19 @@ from datetime import datetime
 
 import click
 
-from cvdso import DeepSymbolicOptimizer
+from cvdso.core import DeepSymbolicOptimizer
 from cvdso.logeval import LogEval
-from cvdso.config import load_config
+from cvdso.config_utils import load_config
 from cvdso.utils import safe_update_summary
 
 from scibench.symbolic_data_generator import *
 from scibench.symbolic_equation_evaluator_public import Equation_evaluator
 
 
-def train_dso(config, dataX, data_query_oracle, config_filename):
+def train_cvdso(config, dataX, data_query_oracle, config_filename):
     """Trains DSO and returns dict of reward, expression, and traversal"""
 
     print("\n== TRAINING SEED {} START ============".format(config["experiment"]["seed"]))
-
-    # For some reason, for the control task, the environment needs to be instantiated
-    # before creating the pool. Otherwise, gym.make() hangs during the pool initializer
-    if config["task"]["task_type"] == "control" and config["training"]["n_cores_batch"] > 1:
-        import gym
-        import dso.task.control  # Registers custom and third-party environments
-        gym.make(config["task"]["env"])
 
     # Train the model
     model = DeepSymbolicOptimizer(deepcopy(config), dataX, data_query_oracle, config_filename)
@@ -143,13 +136,13 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     # Farm out the work
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
-        for i, (result, summary_path) in enumerate(pool.imap_unordered(train_dso, configs, dataXgen, data_query_oracle, config_template)):
+        for i, (result, summary_path) in enumerate(pool.imap_unordered(train_cvdso, configs, dataXgen, data_query_oracle, config_template)):
             if not safe_update_summary(summary_path, result):
                 print("Warning: Could not update summary stats at {}".format(summary_path))
             print("INFO: Completed run {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))
     else:
         for i, config in enumerate(configs):
-            result, summary_path = train_dso(config, dataXgen, data_query_oracle, config_template)
+            result, summary_path = train_cvdso(config, dataXgen, data_query_oracle, config_template)
             if not safe_update_summary(summary_path, result):
                 print("Warning: Could not update summary stats at {}".format(summary_path))
             print("INFO: Completed run {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))

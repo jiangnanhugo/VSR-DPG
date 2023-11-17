@@ -203,6 +203,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Warm start the queue
         warm_start = warm_start if warm_start is not None else batch_size
         actions, obs, priors = controller.sample(warm_start)
+        print("sampled actions:", actions)
         programs = [from_tokens(a) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
@@ -255,19 +256,10 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors = controller.sample(batch_size)
+        print("sampled actions:", actions)
         programs = [from_tokens(a) for a in actions]
         nevals += batch_size
 
-        # Run GP seeded with the current batch, returning elite samples
-        if run_gp_meld:
-            deap_programs, deap_actions, deap_obs, deap_priors = gp_controller(actions)
-            nevals += gp_controller.nevals
-
-            # Combine RNN and deap programs, actions, obs, and priors
-            programs = programs + deap_programs
-            actions = np.append(actions, deap_actions, axis=0)
-            obs = np.append(obs, deap_obs, axis=0)
-            priors = np.append(priors, deap_priors, axis=0)
 
         # Compute rewards in parallel
         if pool is not None:

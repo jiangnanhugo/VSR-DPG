@@ -11,8 +11,8 @@ required = [
     "pytest",
     "cython",
     "numpy",
-    "tensorflow==1.14",
-    "numba==0.53.1",
+    "tensorflow==1.15",
+    "numba",
     "sympy",
     "pandas",
     "scikit-learn",
@@ -37,5 +37,4 @@ setup(name='cvdso',
       ext_modules=cythonize([os.path.join('cvdso', 'cyfunc.pyx')]),
       include_dirs=[numpy.get_include()],
       install_requires=required,
-      extras_require=extras
       )

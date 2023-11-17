@@ -3,9 +3,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
-from dso.program import Program
-from dso.utils import import_custom_source
-from dso.subroutines import parents_siblings
+from cvdso.program import Program
+from cvdso.utils import import_custom_source
+from cvdso.subroutines import parents_siblings
 
 
 class Task(ABC):
@@ -204,11 +204,8 @@ def make_task(task_type, **config_task):
     # Lazy import of task factory functions
 
     if task_type == "regression":
-        from dso.task.regression.regression import RegressionTask
+        from cvdso.task.regression.regression import RegressionTask
         task_class = RegressionTask
-    elif task_type == "control":
-        from dso.task.control.control import ControlTask
-        task_class = ControlTask
     else:
         # Custom task import
         task_class = import_custom_source(task_type)

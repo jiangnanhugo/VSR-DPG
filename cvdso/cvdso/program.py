@@ -14,9 +14,7 @@ from cvdso.utils import cached_property
 import cvdso.utils as U
 
 
-
 def _finish_tokens(tokens):
-
     """
     Complete a possibly unfinished string of tokens.
 
@@ -107,7 +105,6 @@ def from_str_tokens(str_tokens, skip_cache=False):
 
 
 def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
-
     """
     Memoized function to generate a Program from a list of tokens.
 
@@ -140,7 +137,7 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
     '''
         Truncate expressions that complete early; extend ones that don't complete
     '''
-  
+
     if finish_tokens:
         tokens = _finish_tokens(tokens)
 
@@ -150,7 +147,7 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
     if skip_cache or Program.task.stochastic:
         p = Program(tokens, on_policy=on_policy)
     else:
-        key = tokens.tostring() 
+        key = tokens.tostring()
         try:
             p = Program.cache[key]
             if on_policy:
@@ -212,26 +209,26 @@ class Program(object):
     """
 
     # Static variables
-    task = None             # Task
-    library = None          # Library
+    task = None  # Task
+    library = None  # Library
     const_optimizer = None  # Function to optimize constants
     cache = {}
-    n_objects = 1           # Number of executable objects per Program instance
+    n_objects = 1  # Number of executable objects per Program instance
 
     # Cython-related static variables
-    have_cython = None      # Do we have cython installed
-    execute = None          # Link to execute. Either cython or python
-    cyfunc = None           # Link to cyfunc lib since we do an include inline
+    have_cython = None  # Do we have cython installed
+    execute = None  # Link to execute. Either cython or python
+    cyfunc = None  # Link to cyfunc lib since we do an include inline
 
     def __init__(self, tokens=None, on_policy=True):
         """
         Builds the Program from a list of of integers corresponding to Tokens.
         """
-        
+
         # Can be empty if we are unpickling 
         if tokens is not None:
             self._init(tokens, on_policy)
-            
+
     def _init(self, tokens, on_policy=True):
 
         self.traversal = [Program.library[t] for t in tokens]
@@ -247,66 +244,66 @@ class Program(object):
 
         self.on_policy_count = 1 if on_policy else 0
         self.off_policy_count = 0 if on_policy else 1
-        self.originally_on_policy = on_policy # Note if a program was created on policy
+        self.originally_on_policy = on_policy  # Note if a program was created on policy
 
         if Program.n_objects > 1:
             # Fill list of multi-traversals
             danglings = -1 * np.arange(1, Program.n_objects + 1)
-            self.traversals = [] # list to keep track of each multi-traversal
+            self.traversals = []  # list to keep track of each multi-traversal
             i_prev = 0
-            arity_list = [] # list of arities for each node in the overall traversal
+            arity_list = []  # list of arities for each node in the overall traversal
             for i, token in enumerate(self.traversal):
                 arities = token.arity
                 arity_list.append(arities)
                 dangling = 1 + np.cumsum(np.array(arity_list) - 1)[-1]
                 if (dangling - 1) in danglings:
-                    trav_object = self.traversal[i_prev:i+1]
+                    trav_object = self.traversal[i_prev:i + 1]
                     self.traversals.append(trav_object)
-                    i_prev = i+1
+                    i_prev = i + 1
                     """
                     Keep only what dangling values have not yet been calculated. Don't want dangling to go down and up (e.g hits -1, goes back up to 0 before hitting -2)
                     and trigger the end of a traversal at the wrong time
                     """
                     danglings = danglings[danglings != dangling - 1]
-                    
+
     def __getstate__(self):
-        
+
         have_r = "r" in self.__dict__
         have_evaluate = "evaluate" in self.__dict__
         possible_const = have_r or have_evaluate
-        
-        state_dict = {'tokens' : self.tokens, # string rep comes out different if we cast to array, so we can get cache misses.
-                      'have_r' : bool(have_r),
-                      'r' : float(self.r) if have_r else float(-np.inf), 
-                      'have_evaluate' : bool(have_evaluate),
-                      'evaluate' : self.evaluate if have_evaluate else float(-np.inf), 
-                      'const' : array.array('d', self.get_constants()) if possible_const else float(-np.inf), 
-                      'on_policy_count' : bool(self.on_policy_count),
-                      'off_policy_count' : bool(self.off_policy_count),
-                      'originally_on_policy' : bool(self.originally_on_policy),
-                      'invalid' : bool(self.invalid), 
-                      'error_node' : array.array('u', "" if not self.invalid else self.error_node), 
-                      'error_type' : array.array('u', "" if not self.invalid else self.error_type)}    
-        
+
+        state_dict = {'tokens': self.tokens,  # string rep comes out different if we cast to array, so we can get cache misses.
+                      'have_r': bool(have_r),
+                      'r': float(self.r) if have_r else float(-np.inf),
+                      'have_evaluate': bool(have_evaluate),
+                      'evaluate': self.evaluate if have_evaluate else float(-np.inf),
+                      'const': array.array('d', self.get_constants()) if possible_const else float(-np.inf),
+                      'on_policy_count': bool(self.on_policy_count),
+                      'off_policy_count': bool(self.off_policy_count),
+                      'originally_on_policy': bool(self.originally_on_policy),
+                      'invalid': bool(self.invalid),
+                      'error_node': array.array('u', "" if not self.invalid else self.error_node),
+                      'error_type': array.array('u', "" if not self.invalid else self.error_type)}
+
         # In the future we might also return sympy_expr and complexity if we ever need to compute in parallel 
 
         return state_dict
-                
+
     def __setstate__(self, state_dict):
-        
+
         # Question, do we need to init everything when we have already run, or just some things?
         self._init(state_dict['tokens'], state_dict['originally_on_policy'])
-        
+
         have_run = False
-        
+
         if state_dict['have_r']:
             setattr(self, 'r', state_dict['r'])
             have_run = True
-            
+
         if state_dict['have_evaluate']:
             setattr(self, 'evaluate', state_dict['evaluate'])
-            have_run = True 
-        
+            have_run = True
+
         if have_run:
             self.set_constants(state_dict['const'].tolist())
             self.invalid = state_dict['invalid']
@@ -314,7 +311,7 @@ class Program(object):
             self.error_type = state_dict['error_type'].tounicode()
             self.on_policy_count = state_dict['on_policy_count']
             self.off_policy_count = state_dict['off_policy_count']
-                              
+
     def execute(self, X):
         """
         Execute program on input X.
@@ -363,7 +360,7 @@ class Program(object):
         def f(consts):
             self.set_constants(consts)
             r = self.task.reward_function(self)
-            obj = -r # Constant optimizer minimizes the objective function
+            obj = -r  # Constant optimizer minimizes the objective function
 
             # Need to reset to False so that a single invalid call during
             # constant optimization doesn't render the whole Program invalid.
@@ -372,7 +369,7 @@ class Program(object):
             return obj
 
         # Do the optimization
-        x0 = np.ones(len(self.const_pos)) # Initial guess
+        x0 = np.ones(len(self.const_pos))  # Initial guess
         optimized_constants = Program.const_optimizer(f, x0)
 
         # Set the optimized constants
@@ -393,7 +390,6 @@ class Program(object):
             # instance and just overwrite each other's value.
             self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
-
     @classmethod
     def set_n_objects(cls, n_objects):
         Program.n_objects = n_objects
@@ -404,14 +400,12 @@ class Program(object):
 
         cls.cache = {}
 
-
     @classmethod
     def set_task(cls, task):
         """Sets the class' Task"""
 
         Program.task = task
         Program.library = task.library
-
 
     @classmethod
     def set_const_optimizer(cls, name, **kwargs):
@@ -420,59 +414,55 @@ class Program(object):
         const_optimizer = make_const_optimizer(name, **kwargs)
         Program.const_optimizer = const_optimizer
 
-
     @classmethod
     def set_complexity(cls, name):
         """Sets the class' complexity function"""
 
         all_functions = {
             # No complexity
-            None : lambda p : 0.0,
+            None: lambda p: 0.0,
 
             # Length of sequence
-            "length" : lambda p : len(p.traversal),
+            "length": lambda p: len(p.traversal),
 
             # Sum of token-wise complexities
-            "token" : lambda p : sum([t.complexity for t in p.traversal]),
+            "token": lambda p: sum([t.complexity for t in p.traversal]),
 
         }
 
         assert name in all_functions, "Unrecognzied complexity function name."
 
-        Program.complexity_function = lambda p : all_functions[name](p)
+        Program.complexity_function = lambda p: all_functions[name](p)
 
     @classmethod
     def set_execute(cls, protected):
         """Sets which execute method to use"""
 
         # Check if cython_execute can be imported; if not, fall back to python_execute
-        try:
-            from dso import cyfunc
-            from dso.execute import cython_execute
-            execute_function        = cython_execute
-            Program.have_cython     = True
-        except ImportError:
-            from dso.execute import python_execute
-            execute_function        = python_execute
-            Program.have_cython     = False
+
+
+        from cvdso.execute import cython_execute
+        execute_function = cython_execute
+        Program.have_cython = True
 
         if protected:
             Program.protected = True
             Program.execute_function = execute_function
         else:
             Program.protected = False
+
             class InvalidLog():
                 """Log class to catch and record numpy warning messages"""
 
                 def __init__(self):
-                    self.error_type = None # One of ['divide', 'overflow', 'underflow', 'invalid']
-                    self.error_node = None # E.g. 'exp', 'log', 'true_divide'
-                    self.new_entry = False # Flag for whether a warning has been encountered during a call to Program.execute()
+                    self.error_type = None  # One of ['divide', 'overflow', 'underflow', 'invalid']
+                    self.error_node = None  # E.g. 'exp', 'log', 'true_divide'
+                    self.new_entry = False  # Flag for whether a warning has been encountered during a call to Program.execute()
 
                 def write(self, message):
                     """This is called by numpy when encountering a warning"""
 
-                    if not self.new_entry: # Only record the first warning encounter
+                    if not self.new_entry:  # Only record the first warning encounter
                         message = message.strip().split(' ')
                         self.error_type = message[1]
                         self.error_node = message[-1]
@@ -488,9 +478,8 @@ class Program(object):
                     else:
                         return False, None, None
 
-
             invalid_log = InvalidLog()
-            np.seterrcall(invalid_log) # Tells numpy to call InvalidLog.write() when encountering a warning
+            np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
 
             # Define closure for execute function
             def unsafe_execute(traversal, X):
@@ -505,7 +494,7 @@ class Program(object):
                     return y, invalid, error_node, error_type
 
             Program.execute_function = unsafe_execute
-                
+
     @cached_property
     def r(self):
         """Evaluates and returns the reward of the program"""
@@ -553,7 +542,7 @@ class Program(object):
             tree = build_tree(tree)
             tree = convert_to_sympy(tree)
             try:
-                expr = parse_expr(tree.__repr__()) # SymPy expression
+                expr = parse_expr(tree.__repr__())  # SymPy expression
             except:
                 expr = tree.__repr__()
             return [expr]
@@ -564,7 +553,7 @@ class Program(object):
                 tree = build_tree(tree)
                 tree = convert_to_sympy(tree)
                 try:
-                    expr = parse_expr(tree.__repr__()) # SymPy expression
+                    expr = parse_expr(tree.__repr__())  # SymPy expression
                 except:
                     expr = tree.__repr__()
                 exprs.append(expr)
@@ -572,15 +561,14 @@ class Program(object):
 
     def pretty(self):
         """Returns pretty printed string of the program"""
-        return [pretty(self.sympy_expr[i]) for i in range(Program.n_objects)] 
-
+        return [pretty(self.sympy_expr[i]) for i in range(Program.n_objects)]
 
     def print_stats(self):
         """Prints the statistics of the program
         
             We will print the most honest reward possible when using validation.
         """
-        
+
         print("\tReward: {}".format(self.r))
         print("\tCount Off-policy: {}".format(self.off_policy_count))
         print("\tCount On-policy: {}".format(self.on_policy_count))
@@ -620,7 +608,7 @@ class Node(object):
     def __repr__(self):
         children_repr = ",".join(repr(child) for child in self.children)
         if len(self.children) == 0:
-            return self.val # Avoids unnecessary parantheses, e.g. x1()
+            return self.val  # Avoids unnecessary parantheses, e.g. x1()
         return "{}({})".format(self.val, children_repr)
 
 

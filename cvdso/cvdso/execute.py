@@ -1,4 +1,4 @@
-from cvdso import cyfunc
+from scibench import cyfunc
 
 import array
 

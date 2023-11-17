@@ -287,7 +287,7 @@ class Controller(object):
                                        next_lengths,
                                        next_finished)
 
-                return (finished, next_input, next_cell_state, emit_output, next_loop_state)
+                return finished, next_input, next_cell_state, emit_output, next_loop_state
 
             # Returns RNN emit outputs TensorArray (i.e. logits), final cell state, and final loop state
             with tf.variable_scope('policy'):
@@ -339,17 +339,6 @@ class Controller(object):
             neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
 
             neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
-
-            # NOTE 1: The above implementation is the same as the one below:
-            # neglogp_per_step = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=actions)
-            # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
-            # NOTE 2: The above implementation is also the same as the one below, with a few caveats:
-            #   Exactly equivalent when removing priors.
-            #   Equivalent up to precision when including clipped prior.
-            #   Crashes when prior is not clipped due to multiplying zero by -inf.
-            # neglogp_per_step = -tf.nn.log_softmax(logits + tf.clip_by_value(priors, -2.4e38, 0)) * actions_one_hot
-            # neglogp_per_step = tf.reduce_sum(neglogp_per_step, axis=2)
-            # neglogp = tf.reduce_sum(neglogp_per_step, axis=1) # Sum over time
 
             # If entropy_gamma = 1, entropy_gamma_decay_mask == mask
             entropy_gamma_decay_mask = entropy_gamma_decay * mask # ->(batch_size, max_length)
