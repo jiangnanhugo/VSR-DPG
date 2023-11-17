@@ -1,1 +1,0 @@
-from cvdso.policy.policy import make_policy, Policy
