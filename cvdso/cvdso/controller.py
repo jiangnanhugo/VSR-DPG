@@ -8,7 +8,7 @@ from cvdso.memory import Batch
 from cvdso.prior import LengthConstraint
 
 
-class LinearWrapper(tf.contrib.rnn.LayerRNNCell):
+class LinearWrapper():
     """
     RNNCell wrapper that adds a linear layer to the output.
 
@@ -136,7 +136,7 @@ class Controller(object):
         ###self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
         self.n_objects = Program.n_objects
 
-        lib = Program.library
+
 
         # Find max_length from the LengthConstraint prior, if it exists
         # Both priors will never happen in the same experiment
@@ -167,7 +167,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = lib.L
+        n_choices = Program.library.L
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -200,8 +200,7 @@ class Controller(object):
             if isinstance(num_units, int):
                 num_units = [num_units] * num_layers
             initializer = make_initializer(initializer)
-            cell = tf.contrib.rnn.MultiRNNCell(
-                    [make_cell(cell, n, initializer=initializer) for n in num_units])
+            cell = tf.contrib.rnn.MultiRNNCell([make_cell(cell, n, initializer=initializer) for n in num_units])
             cell = LinearWrapper(cell=cell, output_size=n_choices)
 
             task = Program.task
@@ -261,7 +260,7 @@ class Controller(object):
                     next_obs, next_prior = tf.py_func(func=task.get_next_obs,
                                                       inp=[actions, obs],
                                                       Tout=[tf.float32, tf.float32])
-                    next_prior.set_shape([None, lib.L])
+                    next_prior.set_shape([None, n_choices])
                     next_obs.set_shape([None, task.OBS_DIM])
                     next_obs = state_manager.process_state(next_obs)
                     next_input = state_manager.get_tensor_input(next_obs)

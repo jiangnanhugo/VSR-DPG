@@ -67,5 +67,6 @@ class ScipyMinimize(ConstOptimizer):
     def __call__(self, f, x0):
         with np.errstate(divide='ignore'):
             opt_result = partial(minimize, **self.kwargs)(f, x0)
+
         x = opt_result['x']
         return x
