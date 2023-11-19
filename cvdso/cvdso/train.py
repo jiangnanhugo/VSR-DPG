@@ -218,15 +218,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         print("\nInitial parameter means:")
         print_var_means()
 
-    # For stochastic Tasks, store each reward computation for each unique traversal
-    if Program.task.stochastic:
-        r_history = {} # Dict from Program str to list of rewards
-        # It's not really clear whether Programs with const should enter the hof for stochastic Tasks
-        assert Program.library.const_token is None, \
-            "Constant tokens not yet supported with stochastic Tasks."
-        assert not save_pareto_front, "Pareto front not supported with stochastic Tasks."
-    else:
-        r_history = None
+    r_history = None
 
     # Main training loop
     p_final = None
@@ -249,7 +241,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     for epoch in range(n_epochs):
 
         # Set of str representations for all Programs ever seen
-        s_history = set(r_history.keys() if Program.task.stochastic else Program.cache.keys())
+        s_history = set(Program.cache.keys())
 
         # Sample batch of Programs from the Controller
         # Shape of actions: (batch_size, max_length)

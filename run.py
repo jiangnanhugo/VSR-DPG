@@ -26,6 +26,8 @@ def train_cvdso(config, dataX, data_query_oracle, config_filename):
     # Train the model
     model = DeepSymbolicOptimizer(deepcopy(config), dataX, data_query_oracle, config_filename)
     start = time.time()
+    # Setup the model
+    model.setup()
     result = model.train()
     result["t"] = time.time() - start
     result.pop("program")
@@ -40,12 +42,7 @@ def train_cvdso(config, dataX, data_query_oracle, config_filename):
 
 def print_summary(config, runs, messages):
     text = '\n== EXPERIMENT SETUP START ===========\n'
-    text += 'Task type            : {}\n'.format(config["task"]["task_type"])
-    if config["task"]["task_type"] == "regression":
-        # text += 'Dataset              : {}\n'.format(config["task"]["dataset"])
-        pass
-    elif config["task"]["task_type"] == "control":
-        text += 'Environment          : {}\n'.format(config["task"]["env"])
+    text += 'Task type            : regression\n'
     text += 'Starting seed        : {}\n'.format(config["experiment"]["seed"])
     text += 'Runs                 : {}\n'.format(runs)
     if len(messages) > 0:
@@ -65,8 +62,7 @@ def print_summary(config, runs, messages):
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--seed', '--s', default=None, type=int,
               help="Starting seed (overwrites seed in config), incremented for each independent run")
-@click.option('--benchmark', '--b', default=None, type=str, help="Name of benchmark")
-def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_task, seed, benchmark):
+def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_task, seed):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
     messages = []
@@ -76,21 +72,8 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     config = load_config(config_template)
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale)
     dataXgen = DataX(data_query_oracle.get_vars_range_and_types())
-    print("OLD function set:", config['task']['function_set'])
-    config['task']['function_set'] = data_query_oracle.operators_set
-    print("New function set:", config['task']['function_set'])
 
-    # Overwrite named benchmark (for tasks that support them)
-    task_type = config["task"]["task_type"]
-    if benchmark is not None:
-        # For regression, --b overwrites config["task"]["dataset"]
-        if task_type == "regression":
-            config["task"]["dataset"] = benchmark
-        # For control, --b overwrites config["task"]["env"]
-        elif task_type == "control":
-            config["task"]["env"] = benchmark
-        else:
-            raise ValueError("--b is not supported for task {}.".format(task_type))
+
 
     # Overwrite config seed, if specified
     if seed is not None:

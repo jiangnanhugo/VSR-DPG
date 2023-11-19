@@ -16,7 +16,7 @@ import numpy as np
 import tensorflow as tf
 import commentjson as json
 
-from cvdso.task import set_task
+from cvdso.task.regression import set_task
 from cvdso.controller import Controller
 from cvdso.train import learn
 from cvdso.prior import make_prior
@@ -32,18 +32,13 @@ class DeepSymbolicOptimizer(object):
 
     Parameters
     ----------
-    config : dict or str
-        Config dictionary or path to JSON.
+    config : dict or str. Config dictionary or path to JSON.
 
     Attributes
     ----------
-    config : dict
-        Configuration parameters for training.
+    config : dict. Configuration parameters for training.
 
-    Methods
-    -------
-    train
-        Builds and trains the model according to config.
+    Methods: train. Builds and trains the model according to config.
     """
 
     def __init__(self, config=None, dataX=None, data_query_oracle=None, config_filename=None):
@@ -52,33 +47,19 @@ class DeepSymbolicOptimizer(object):
         self.sess = None
         self.dataX = dataX
         self.data_query_oracle = data_query_oracle
-        print(f'self.dataX {self.dataX}, self.data_query_oracle: {self.data_query_oracle}')
-        print('generate dataset!')
-        self.generate_and_set_Xy_pairs()
 
-    def generate_and_set_Xy_pairs(self):
-        self.n_samples, self.batch_size = self.config_training['n_samples'], self.config_training['batch_size']
-        X_train = self.dataX.randn(sample_size=self.n_samples).T
-        y_train = self.data_query_oracle.evaluate(X_train)
-        X_test = self.dataX.randn(sample_size=self.batch_size).T
-        y_test = self.data_query_oracle.evaluate(X_test)
-        y_test_noiseless = y_test
-        # print("_".join(['regression', self.data_query_oracle._get_eq_name().split('/')[-1], self.data_query_oracle.noise_type,
-        #                       str(self.data_query_oracle.noise_scale)])
-        self.config_task['dataset'] = {
-            'X_train': X_train,
-            'y_train': y_train,
-            'X_test': X_test,
-            'y_test': y_test,
-            'y_test_noiseless': y_test_noiseless,
-            'name': "_".join(['regression', self.config_filename.split("/")[-1],
-                              self.data_query_oracle._get_eq_name().split('/')[-1],
-                              self.data_query_oracle.noise_type,
-                              str(self.data_query_oracle.noise_scale)])
-        }
+        self.config_task['batchsize'] = self.config_training['batch_size']
+        self.config_task['dataX'] = self.dataX
+        nvar = data_query_oracle.get_nvars()
+        allowed_input_tokens = np.ones(nvar, dtype=np.int32)
+        self.config_task['allowed_input'] = allowed_input_tokens
+        self.config_task['data_query_oracle'] = self.data_query_oracle
+        self.task_name = "_".join(['regression', self.config_filename.split("/")[-1],
+                                   self.data_query_oracle._get_eq_name().split('/')[-1],
+                                   self.data_query_oracle.noise_type,
+                                   str(self.data_query_oracle.noise_scale)])
 
     def setup(self):
-
         # Clear the cache and reset the compute graph
         Program.clear_cache()
         tf.reset_default_graph()
@@ -99,9 +80,6 @@ class DeepSymbolicOptimizer(object):
         self.gp_controller = self.make_gp_controller()
 
     def train(self):
-        # Setup the model
-        self.setup()
-
         # Train the model
         result = {"seed": self.config_experiment["seed"]}  # Seed listed first
         result_dict = learn(self.sess,
@@ -128,8 +106,7 @@ class DeepSymbolicOptimizer(object):
     def save_config(self):
         # Save the config file
         if self.output_file is not None:
-            path = os.path.join(self.config_experiment["save_path"],
-                                "config.json")
+            path = os.path.join(self.config_experiment["save_path"], "config.json")
             # With run.py, config.json may already exist. To avoid race
             # conditions, only record the starting seed. Use a backup seed
             # in case this worker's seed differs.
@@ -139,9 +116,11 @@ class DeepSymbolicOptimizer(object):
                     self.config_experiment["seed"] = self.config_experiment["starting_seed"]
                     del self.config_experiment["starting_seed"]
                 with open(path, 'w') as f:
-                    cp_config = copy.deepcopy(self.config)
-                    cp_config['task']['dataset'] = 'symbolic_equation_evaluator'
-                    json.dump(cp_config, f, indent=3)
+                    cp_config=copy.copy(self.config)
+                    cp_config['task']['dataX']='dataX'
+                    cp_config['task']['data_query_oracle'] = 'data_query_oracle'
+                    cp_config['task']['allowed_input']='allowed_input'
+                    json.dump(cp_config, f, indent=4)
             self.config_experiment["seed"] = backup_seed
 
     def set_seeds(self):
@@ -160,11 +139,11 @@ class DeepSymbolicOptimizer(object):
 
         # Shift the seed based on task name
         # This ensures a specified seed doesn't have similarities across different task names
-        task_name = Program.task.name
-        shifted_seed = seed + zlib.adler32(task_name.encode("utf-8"))
+
+        shifted_seed = seed + zlib.adler32(self.task_name.encode("utf-8"))
 
         # Set the seeds using the shifted seed
-        tf.set_random_seed(shifted_seed)
+        tf.random.set_random_seed(shifted_seed)
         np.random.seed(shifted_seed)
         random.seed(shifted_seed)
 
@@ -183,14 +162,7 @@ class DeepSymbolicOptimizer(object):
         return controller
 
     def make_gp_controller(self):
-        if self.config_gp_meld.pop("run_gp_meld", False):
-            from dso.gp.gp_controller import GPController
-            gp_controller = GPController(self.prior,
-                                         self.pool,
-                                         **self.config_gp_meld)
-        else:
-            gp_controller = None
-        return gp_controller
+        return None
 
     def make_pool_and_set_task(self):
         # Create the pool and set the Task for each worker
@@ -236,17 +208,17 @@ class DeepSymbolicOptimizer(object):
             self.config_experiment["timestamp"] = timestamp
 
         # Generate save path
-        task_name = Program.task.name
+
         save_path = os.path.join(
             self.config_experiment["logdir"],
-            '_'.join([task_name, timestamp]))
-        self.config_experiment["task_name"] = task_name
+            '_'.join([self.task_name, timestamp]))
+        self.config_experiment["task_name"] = self.task_name
         self.config_experiment["save_path"] = save_path
         os.makedirs(save_path, exist_ok=True)
 
         seed = self.config_experiment["seed"]
         output_file = os.path.join(save_path,
-                                   "dso_{}_{}.csv".format(task_name, seed))
+                                   "cvdso_{}_{}.csv".format(self.task_name, seed))
 
         return output_file
 

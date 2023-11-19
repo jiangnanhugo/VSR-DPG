@@ -141,7 +141,7 @@ UNARY_TOKENS    = set([op.name for op in function_map.values() if op.arity == 1]
 BINARY_TOKENS   = set([op.name for op in function_map.values() if op.arity == 2])
 
 
-def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_set=None):
+def create_tokens(n_input_var, function_set, protected):
     """
     Helper function to create Tokens.
 
@@ -155,16 +155,13 @@ def create_tokens(n_input_var, function_set, protected, decision_tree_threshold_
 
     protected : bool
         Whether to use protected versions of registered Tokens.
-
-    decision_tree_threshold_set : list
-        A set of constants {tj} for constructing nodes (xi < tj) in decision trees.
     """
 
     tokens = []
 
     # Create input variable Tokens
     for i in range(n_input_var):
-        token = Token(name="x{}".format(i + 1), arity=0, complexity=1,
+        token = Token(name="X{}".format(i + 1), arity=0, complexity=1,
                       function=None, input_var=i)
         tokens.append(token)
 

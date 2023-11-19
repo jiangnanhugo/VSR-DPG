@@ -12,9 +12,6 @@
    // Task-specific hyperparameters. See task-specific configs (e.g.
    // config_regression.json) for more info.
    "task" : {
-
-      // Choice of ["regression", "control"].
-      "task_type" : null
    },
 
    // Hyperparameters related to the main training loop.

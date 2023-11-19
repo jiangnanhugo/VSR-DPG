@@ -144,7 +144,7 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
-    if skip_cache or Program.task.stochastic:
+    if skip_cache:
         p = Program(tokens, on_policy=on_policy)
     else:
         key = tokens.tostring()
@@ -368,6 +368,7 @@ class Program(object):
 
             return obj
 
+        self.task.rand_draw_data_with_X_fixed()
         # Do the optimization
         x0 = np.ones(len(self.const_pos))  # Initial guess
         optimized_constants = Program.const_optimizer(f, x0)
