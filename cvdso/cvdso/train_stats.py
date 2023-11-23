@@ -289,28 +289,8 @@ class StatsLogger():
 
         # Save the hall of fame
         if self.hof is not None and self.hof > 0:
-            # For stochastic Tasks, average each unique Program's r_history,
-            if Program.task.stochastic:
-
-                # Define a helper function to generate a Program from its tostring() value
-                def from_token_string(str_tokens):
-                    tokens = np.fromstring(str_tokens, dtype=np.int32)
-                    return from_tokens(tokens)
-
-                # Generate each unique Program and manually set its reward to the average of its r_history
-                keys = r_history.keys()  # str_tokens for each unique Program
-                vals = r_history.values()  # reward histories for each unique Program
-                programs = [from_token_string(str_tokens) for str_tokens in keys]
-                for p, r in zip(programs, vals):
-                    p.r = np.mean(r)
-                    #It is not possible to tell if each program was sampled on- or off-policy at this point.
-                    # -1 on off_policy_count signals that we can't distinguish the counters in this task.
-                    p.on_policy_count = len(r)
-                    p.off_policy_count = -1
-
             # For deterministic Programs, just use the cache
-            else:
-                programs = list(Program.cache.values())  # All unique Programs found during training
+            programs = list(Program.cache.values())  # All unique Programs found during training
 
             r = [p.r for p in programs]
             i_hof = np.argsort(r)[-self.hof:][::-1]  # Indices of top hof Programs

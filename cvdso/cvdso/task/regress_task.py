@@ -47,3 +47,4 @@ class RegressTask(object):
     def reward_function(self, p):
         y_hat = p.execute(self.X)
         return self.data_query_oracle._evaluate_loss(self.X, y_hat)
+

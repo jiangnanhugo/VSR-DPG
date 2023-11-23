@@ -29,7 +29,7 @@ def work(p):
 
 
 def learn(sess, controller, pool, gp_controller, output_file,
-          n_epochs=None, n_samples=2000000, batch_size=1000, complexity="token",
+          n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
           const_optimizer="scipy", const_params=None, alpha=0.5,
           epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
           save_all_epoch=False, baseline="R_e",
@@ -38,7 +38,6 @@ def learn(sess, controller, pool, gp_controller, output_file,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           save_top_samples_per_batch=0, save_cache=False,
           save_cache_r_min=0.9, save_freq=None, save_token_count=False):
-
     """
     Executes the main training loop.
 
@@ -173,7 +172,8 @@ def learn(sess, controller, pool, gp_controller, output_file,
     run_gp_meld = gp_controller is not None
 
     # Config assertions and warnings
-    assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
+    print(n_samples, n_epochs)
+    # assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
     # Initialize compute graph
     sess.run(tf.global_variables_initializer())
@@ -224,9 +224,8 @@ def learn(sess, controller, pool, gp_controller, output_file,
     p_final = None
     r_best = -np.inf
     prev_r_best = None
-    ewma = None if b_jumpstart else 0.0 # EWMA portion of baseline
-    n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    nevals = 0 # Total number of sampled expressions (from RL or GP)
+    ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
+    nevals = 0  # Total number of sampled expressions (from RL or GP)
     positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
@@ -238,6 +237,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     start_time = time.time()
     if verbose:
         print("-- RUNNING EPOCHS START -------------")
+    print("max epoches", n_epochs)
     for epoch in range(n_epochs):
 
         # Set of str representations for all Programs ever seen
@@ -248,34 +248,36 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
         actions, obs, priors = controller.sample(batch_size)
-        print("sampled actions:", actions)
+        # if verbose:
+        #     print("sampled actions:", actions)
         programs = [from_tokens(a) for a in actions]
         nevals += batch_size
-
 
         # Compute rewards in parallel
         if pool is not None:
             # Filter programs that need reward computing
-            programs_to_optimize = list(set([p for p in programs if "r" not in p.__dict__]))          
-            pool_p_dict = { p.str : p for p in pool.map(work, programs_to_optimize) }   
-            programs = [pool_p_dict[p.str] if "r" not in p.__dict__  else p for p in programs]
+            programs_to_optimize = list(set([p for p in programs if "r" not in p.__dict__]))
+            pool_p_dict = {p.str: p for p in pool.map(work, programs_to_optimize)}
+            programs = [pool_p_dict[p.str] if "r" not in p.__dict__ else p for p in programs]
             # Make sure to update cache with new programs
             Program.cache.update(pool_p_dict)
-                    
+
         # Compute rewards (or retrieve cached rewards)
         r = np.array([p.r for p in programs])
+        # if verbose:
+        #     print("rewards:", r)
         r_train = r
 
         # Back up programs to save them properly later
         controller_programs = programs.copy() if save_token_count else None
 
         # Need for Vanilla Policy Gradient (epsilon = null)
-        p_train     = programs
+        p_train = programs
 
-        l           = np.array([len(p.traversal) for p in programs])
-        s           = [p.str for p in programs] # Str representations of Programs
-        on_policy   = np.array([p.originally_on_policy for p in programs])
-        invalid     = np.array([p.invalid for p in programs], dtype=bool)
+        l = np.array([len(p.traversal) for p in programs])
+        s = [p.str for p in programs]  # Str representations of Programs
+        on_policy = np.array([p.originally_on_policy for p in programs])
+        invalid = np.array([p.invalid for p in programs], dtype=bool)
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -317,7 +319,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         """
         if epsilon is not None and epsilon < 1.0:
             # Compute reward quantile estimate
-            if use_memory: # Memory-augmented quantile
+            if use_memory:  # Memory-augmented quantile
                 # Get subset of Programs not in buffer
                 unique_programs = [p for p in programs \
                                    if p.str not in memory_queue.unique_items]
@@ -332,7 +334,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
                 memory_w = memory_queue.compute_probs()
                 if N == 0:
                     print("WARNING: Found no unique samples in batch!")
-                    combined_w = memory_w / memory_w.sum() # Renormalize
+                    combined_w = memory_w / memory_w.sum()  # Renormalize
                 else:
                     sample_w = np.repeat((1 - memory_w.sum()) / N, N)
                     combined_w = np.concatenate([memory_w, sample_w])
@@ -346,7 +348,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
 
-            else: # Empirical quantile
+            else:  # Empirical quantile
                 quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
 
             # These guys can contain the GP solutions if we run GP
@@ -359,10 +361,10 @@ def learn(sess, controller, pool, gp_controller, output_file,
                 contain the GP program items.
             '''
 
-            keep        = r >= quantile
-            l           = l[keep]
-            s           = list(compress(s, keep))
-            invalid     = invalid[keep]
+            keep = r >= quantile
+            l = l[keep]
+            s = list(compress(s, keep))
+            invalid = invalid[keep]
 
             # Option: don't keep the GP programs for return to controller
             if run_gp_meld and not gp_controller.return_gp_obs:
@@ -371,50 +373,50 @@ def learn(sess, controller, pool, gp_controller, output_file,
                     r_train and p_train by augmenting 'keep'. We just chop off the GP elements which are indexed
                     from batch_size to the end of the list.
                 '''
-                _r                  = r[keep]
-                _p                  = list(compress(programs, keep))
-                keep[batch_size:]   = False
-                r_train             = r[keep]
-                p_train             = list(compress(programs, keep))
+                _r = r[keep]
+                _p = list(compress(programs, keep))
+                keep[batch_size:] = False
+                r_train = r[keep]
+                p_train = list(compress(programs, keep))
 
                 '''
                     These contain all the programs and rewards regardless of whether they are returned to the controller.
                     This way, they can still be stored in the hall of fame.
                 '''
-                r                   = _r
-                programs            = _p
+                r = _r
+                programs = _p
             else:
                 '''
                     Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
                 '''
-                r_train = r         = r[keep]
-                p_train = programs  = list(compress(programs, keep))
+                r_train = r = r[keep]
+                p_train = programs = list(compress(programs, keep))
 
             '''
                 get the action, observation, priors and on_policy status of all programs returned to the controller.
             '''
-            actions     = actions[keep, :]
-            obs         = obs[keep, :, :]
-            priors      = priors[keep, :, :]
-            on_policy   = on_policy[keep]
+            actions = actions[keep, :]
+            obs = obs[keep, :, :]
+            priors = priors[keep, :, :]
+            on_policy = on_policy[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
-        r       = np.clip(r,        -1e6, 1e6)
-        r_train = np.clip(r_train,  -1e6, 1e6)
+        r = np.clip(r, -1e6, 1e6)
+        r_train = np.clip(r_train, -1e6, 1e6)
 
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
-            ewma = np.mean(r_train) if ewma is None else alpha*np.mean(r_train) + (1 - alpha)*ewma
+            ewma = np.mean(r_train) if ewma is None else alpha * np.mean(r_train) + (1 - alpha) * ewma
             b_train = ewma
-        elif baseline == "R_e": # Default
+        elif baseline == "R_e":  # Default
             ewma = -1
             b_train = quantile
         elif baseline == "ewma_R_e":
-            ewma = np.min(r_train) if ewma is None else alpha*quantile + (1 - alpha)*ewma
+            ewma = np.min(r_train) if ewma is None else alpha * quantile + (1 - alpha) * ewma
             b_train = ewma
         elif baseline == "combined":
-            ewma = np.mean(r_train) - quantile if ewma is None else alpha*(np.mean(r_train) - quantile) + (1 - alpha)*ewma
+            ewma = np.mean(r_train) - quantile if ewma is None else alpha * (np.mean(r_train) - quantile) + (1 - alpha) * ewma
             b_train = quantile + ewma
 
         # Compute sequence lengths
@@ -435,7 +437,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Train the controller
         summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
 
-        #wall time calculation for the epoch
+        # wall time calculation for the epoch
         epoch_walltime = time.time() - start_time
 
         # Collect sub-batch statistics and write output
@@ -478,7 +480,8 @@ def learn(sess, controller, pool, gp_controller, output_file,
             print_var_means()
 
         if verbose and (epoch + 1) == n_epochs:
-            print("[{}] Ending training after epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch + 1, n_epochs, prev_r_best))
+            print("[{}] Ending training after epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch + 1, n_epochs,
+                                                                                          prev_r_best))
 
         if nevals > n_samples:
             break
@@ -486,11 +489,11 @@ def learn(sess, controller, pool, gp_controller, output_file,
     if verbose:
         print("-- RUNNING EPOCHS END ---------------\n")
         print("-- EVALUATION START ----------------")
-        #print("\n[{}] Evaluating the hall of fame...\n".format(get_duration(start_time)))
+        # print("\n[{}] Evaluating the hall of fame...\n".format(get_duration(start_time)))
 
     controller.prior.report_constraint_counts()
 
-    #Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
+    # Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
     results_add = logger.save_results(positional_entropy, top_samples_per_batch, r_history, pool, epoch, nevals)
 
     # Print the priority queue at the end of training
@@ -507,14 +510,14 @@ def learn(sess, controller, pool, gp_controller, output_file,
     # Return statistics of best Program
     p = p_final if p_final is not None else p_r_best
     result = {
-        "r" : p.r,
+        "r": p.r,
     }
     result.update(p.evaluate)
     result.update({
-        "expression" : repr(p.sympy_expr),
-        "traversal" : repr(p),
-        "program" : p
-        })
+        "expression": repr(p.sympy_expr),
+        "traversal": repr(p),
+        "program": p
+    })
     result.update(results_add)
 
     if verbose:

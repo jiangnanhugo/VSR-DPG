@@ -200,7 +200,7 @@ class LogEval():
         """Generates a summary of important experiment outcomes."""
         print("\n-- ANALYZING LOG START --------------")
         try:
-            print("Task_____________{}".format(self.config["task"]["task_type"]))
+            print("Task_____________regression")
             print("Source path______{}".format(self.save_path))
             print("Runs_____________{}".format(self.n_seeds))
             print("Max Samples/run__{}".format(self.config["training"]["n_samples"]))

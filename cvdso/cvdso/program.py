@@ -576,6 +576,8 @@ class Program(object):
         print("\tOriginally on Policy: {}".format(self.originally_on_policy))
         print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
+        self.task.rand_draw_data_with_X_fixed()
+        self.task.print_reward_function_all_metrics(self)
 
         if Program.n_objects == 1:
             print("\tExpression:")

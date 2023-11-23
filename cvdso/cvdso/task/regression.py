@@ -144,7 +144,6 @@ class RegressionTask(Task):
         self.threshold = threshold
         self.invalid_reward, self.max_reward = make_regression_metric(metric, *metric_params)
 
-
         """
         Configure reward noise.
         """
@@ -188,6 +187,15 @@ class RegressionTask(Task):
         # Compute metric
         return self.data_query_oracle._evaluate_loss(self.X, y_hat)
 
+    def print_reward_function_all_metrics(self, p):
+        """used for print the error for all metrics between the predicted program `p` and true program."""
+        y_hat = p.execute(self.X)
+        dict_of_result = self.data_query_oracle._evaluate_all_losses(self.X, y_hat)
+        print('-' * 30)
+        for mertic_name in dict_of_result:
+            print(f"{mertic_name} {dict_of_result[mertic_name]}")
+        print('-' * 30)
+
     def evaluate(self, p):
 
         # Compute predictions on test data
@@ -198,10 +206,10 @@ class RegressionTask(Task):
 
         else:
             # NMSE on test data (used to report final error)
-            nmse_test = np.mean((self.y_test - y_hat) ** 2) / self.var_y_test
+            nmse_test = self.data_query_oracle._evaluate_loss(self.X, y_hat)  # np.mean((self.y_test - y_hat) ** 2) / self.var_y_test
 
             # Success is defined by NMSE on noiseless test data below a threshold
-            success = nmse_test < self.threshold
+            success = False
 
         info = {
             "nmse_test": nmse_test,
@@ -241,7 +249,6 @@ def make_regression_metric(name, y_train, *args):
     """
 
     var_y = np.var(y_train)
-
 
     # For negative MSE-based rewards, invalid reward is the value of the reward function when y_hat = mean(y)
     # For inverse MSE-based rewards, invalid reward is 0.0
