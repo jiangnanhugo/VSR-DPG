@@ -147,11 +147,9 @@ def create_tokens(n_input_var, function_set, protected):
 
     Parameters
     ----------
-    n_input_var : int
-        Number of input variable Tokens.
+    n_input_var : int. Number of input variable Tokens.
 
-    function_set : list
-        Names of registered Tokens, or floats that will create new Tokens.
+    function_set : list.  Names of registered Tokens, or floats that will create new Tokens.
 
     protected : bool
         Whether to use protected versions of registered Tokens.

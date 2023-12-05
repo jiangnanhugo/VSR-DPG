@@ -6,12 +6,12 @@ import time
 import multiprocessing
 from copy import deepcopy
 from datetime import datetime
-
+import random
 import click
 
-from cvdso.core import DeepSymbolicOptimizer
+from cvdso.deep_symbolic_optimizer import CVDeepSymbolicOptimizer
 from cvdso.logeval import LogEval
-from cvdso.config_utils import load_config
+from cvdso.utils import load_config
 from cvdso.utils import safe_update_summary
 
 from scibench.symbolic_data_generator import *
@@ -24,7 +24,7 @@ def train_cvdso(config, dataX, data_query_oracle, config_filename):
     print("\n== TRAINING SEED {} START ============".format(config["experiment"]["seed"]))
 
     # Train the model
-    model = DeepSymbolicOptimizer(deepcopy(config), dataX, data_query_oracle, config_filename)
+    model = CVDeepSymbolicOptimizer(deepcopy(config), dataX, data_query_oracle, config_filename)
     start = time.time()
     # Setup the model
     model.setup()
@@ -60,9 +60,8 @@ def print_summary(config, runs, messages):
 @click.option('--noise_scale', '--ns', default=0.0, type=float, help="")
 @click.option('--runs', '--r', default=1, type=int, help="Number of independent runs with different seeds")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
-@click.option('--seed', '--s', default=None, type=int,
-              help="Starting seed (overwrites seed in config), incremented for each independent run")
-def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_task, seed):
+@click.option('--logdir', '--l', default="log", type=str, help="logdir folder")
+def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_task, logdir):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
     messages = []
@@ -76,15 +75,13 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
 
 
     # Overwrite config seed, if specified
-    if seed is not None:
-        if config["experiment"]["seed"] is not None:
-            messages.append(
-                "INFO: Replacing config seed {} with command-line seed {}.".format(
-                    config["experiment"]["seed"], seed))
-        config["experiment"]["seed"] = seed
-
-    # Save starting seed and run command
-    config["experiment"]["starting_seed"] = config["experiment"]["seed"]
+    seed = int(time.perf_counter() * 10000) % 1000007
+    random.seed(seed)
+    print('random seed=', seed)
+    seed = int(time.perf_counter() * 10000) % 1000007
+    np.random.seed(seed)
+    config["experiment"]["seed"] = seed
+    config["experiment"]["logdir"] = logdir
     config["experiment"]["cmd"] = " ".join(sys.argv)
 
     # Set timestamp once to be used by all workers
@@ -119,7 +116,8 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     # Farm out the work
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
-        for i, (result, summary_path) in enumerate(pool.imap_unordered(train_cvdso, configs, dataXgen, data_query_oracle, config_template)):
+        for i, (result, summary_path) in enumerate(
+                pool.imap_unordered(train_cvdso, configs, dataXgen, data_query_oracle, config_template)):
             if not safe_update_summary(summary_path, result):
                 print("Warning: Could not update summary stats at {}".format(summary_path))
             print("INFO: Completed run {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))

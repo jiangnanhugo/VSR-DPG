@@ -19,7 +19,7 @@ def pf_work(p):
     return [p.complexity, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
 
 
-class StatsLogger():
+class StatsLogger(object):
     """ Class responsible for dealing with output files of training statistics. It encapsulates all outputs to files."""
 
     def __init__(self, sess, output_file, save_summary=False, save_all_epoch=False, hof=100,

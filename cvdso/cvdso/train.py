@@ -28,7 +28,7 @@ def work(p):
     return p
 
 
-def learn(sess, controller, pool, gp_controller, output_file,
+def learn(sess, expression_decoder, pool, gp_controller, output_file,
           n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
           const_optimizer="scipy", const_params=None, alpha=0.5,
           epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
@@ -46,8 +46,8 @@ def learn(sess, controller, pool, gp_controller, output_file,
     sess : tf.Session
         TensorFlow Session object.
 
-    controller : dso.controller.Controller
-        Controller object used to generate Programs.
+    expression_decoder : dso.expression_decoder.ExpressionDecoder
+        ExpressionDecoder object used to generate Programs.
 
     pool : multiprocessing.Pool or None
         Pool to parallelize reward computation. For the control task, each
@@ -187,8 +187,8 @@ def learn(sess, controller, pool, gp_controller, output_file,
                 print(var.name, "mean:", val.mean(), "var:", val.var())
 
     # Create the priority queue
-    k = controller.pqt_k
-    if controller.pqt and k is not None and k > 0:
+    k = expression_decoder.pqt_k
+    if expression_decoder.pqt and k is not None and k > 0:
         priority_queue = make_queue(priority=True, capacity=k)
     else:
         priority_queue = None
@@ -197,13 +197,14 @@ def learn(sess, controller, pool, gp_controller, output_file,
     if use_memory:
         assert epsilon is not None and epsilon < 1.0, \
             "Memory queue is only used with risk-seeking."
-        memory_queue = make_queue(controller=controller, priority=False,
+        memory_queue = make_queue(controller=expression_decoder, priority=False,
                                   capacity=int(memory_capacity))
 
         # Warm start the queue
         warm_start = warm_start if warm_start is not None else batch_size
-        actions, obs, priors = controller.sample(warm_start)
+        actions, obs, priors = expression_decoder.sample(warm_start)
         print("sampled actions:", actions)
+        # construct program based on the input token indices
         programs = [from_tokens(a) for a in actions]
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
@@ -226,7 +227,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
     nevals = 0  # Total number of sampled expressions (from RL or GP)
-    positional_entropy = np.zeros(shape=(n_epochs, controller.max_length), dtype=np.float32)
+    positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
 
@@ -243,11 +244,11 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
-        # Sample batch of Programs from the Controller
+        # Sample batch of Programs from the expression_decoder
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         # Shape of priors: (batch_size, max_length, n_choices)
-        actions, obs, priors = controller.sample(batch_size)
+        actions, obs, priors = expression_decoder.sample(batch_size)
         # if verbose:
         #     print("sampled actions:", actions)
         programs = [from_tokens(a) for a in actions]
@@ -343,7 +344,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
                 if memory_threshold is not None:
                     print("Memory weight:", memory_w.sum())
                     if memory_w.sum() > memory_threshold:
-                        quantile_variance(memory_queue, controller, batch_size, epsilon, epoch)
+                        quantile_variance(memory_queue, expression_decoder, batch_size, epsilon, epoch)
 
                 # Compute the weighted quantile
                 quantile = weighted_quantile(values=combined_r, weights=combined_w, q=1 - epsilon)
@@ -420,7 +421,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
             b_train = quantile + ewma
 
         # Compute sequence lengths
-        lengths = np.array([min(len(p.traversal), controller.max_length)
+        lengths = np.array([min(len(p.traversal), expression_decoder.max_length)
                             for p in p_train], dtype=np.int32)
 
         # Create the Batch
@@ -430,12 +431,12 @@ def learn(sess, controller, pool, gp_controller, output_file,
         # Update and sample from the priority queue
         if priority_queue is not None:
             priority_queue.push_best(sampled_batch, programs)
-            pqt_batch = priority_queue.sample_batch(controller.pqt_batch_size)
+            pqt_batch = priority_queue.sample_batch(expression_decoder.pqt_batch_size)
         else:
             pqt_batch = None
 
-        # Train the controller
-        summaries = controller.train_step(b_train, sampled_batch, pqt_batch)
+        # Train the expression_decoder
+        summaries = expression_decoder.train_step(b_train, sampled_batch, pqt_batch)
 
         # wall time calculation for the epoch
         epoch_walltime = time.time() - start_time
@@ -491,7 +492,7 @@ def learn(sess, controller, pool, gp_controller, output_file,
         print("-- EVALUATION START ----------------")
         # print("\n[{}] Evaluating the hall of fame...\n".format(get_duration(start_time)))
 
-    controller.prior.report_constraint_counts()
+    expression_decoder.prior.report_constraint_counts()
 
     # Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
     results_add = logger.save_results(positional_entropy, top_samples_per_batch, r_history, pool, epoch, nevals)

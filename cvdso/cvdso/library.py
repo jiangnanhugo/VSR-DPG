@@ -1,7 +1,6 @@
 """Classes for Token and Library"""
 
 from collections import defaultdict
-
 import numpy as np
 
 import cvdso.utils as U
@@ -71,7 +70,7 @@ class HardCodedConstant(Token):
         value = np.atleast_1d(np.float32(value))
         self.value = value
         if name is None:
-            name = str(self.value[0]) 
+            name = str(self.value[0])
         super().__init__(function=self.function, name=name, arity=0, complexity=1)
 
     def function(self):
@@ -106,7 +105,7 @@ class PlaceholderConstant(Token):
         return str(self.value[0])
 
 
-class Library():
+class Library(object):
     """
     Library of Tokens. We use a list of Tokens (instead of set or dict) since
     we so often index by integers given by the Controller.
@@ -134,12 +133,11 @@ class Library():
             [i for i, t in enumerate(self.tokens) if t.input_var is not None],
             dtype=np.int32)
 
-
         def get_tokens_of_arity(arity):
             _tokens = [i for i in range(self.L) if self.arities[i] == arity]
             return np.array(_tokens, dtype=np.int32)
 
-        self.tokens_of_arity = defaultdict(lambda : np.array([], dtype=np.int32))
+        self.tokens_of_arity = defaultdict(lambda: np.array([], dtype=np.int32))
         for arity in self.arities:
             self.tokens_of_arity[arity] = get_tokens_of_arity(arity)
         self.terminal_tokens = self.tokens_of_arity[0]
@@ -168,19 +166,20 @@ class Library():
             dtype=np.int32)
 
         inverse_tokens = {
-            "inv" : "inv",
-            "neg" : "neg",
-            "exp" : "log",
-            "log" : "exp",
-            "sqrt" : "n2",
-            "n2" : "sqrt"
+            "inv": "inv",
+            "neg": "neg",
+            "exp": "log",
+            "log": "exp",
+            "sqrt": "n2",
+            "n2": "sqrt"
         }
-        token_from_name = {t.name : i for i, t in enumerate(self.tokens)}
-        self.inverse_tokens = {token_from_name[k] : token_from_name[v] for k, v in inverse_tokens.items() if k in token_from_name and v in token_from_name}        
+        token_from_name = {t.name: i for i, t in enumerate(self.tokens)}
+        self.inverse_tokens = {token_from_name[k]: token_from_name[v] for k, v in inverse_tokens.items() if
+                               k in token_from_name and v in token_from_name}
 
-        self.n_action_inputs = self.L + 1 # Library tokens + empty token
-        self.n_parent_inputs = self.L + 1 - len(self.terminal_tokens) # Parent sub-lib tokens + empty token
-        self.n_sibling_inputs = self.L + 1 # Library tokens + empty token
+        self.n_action_inputs = self.L + 1  # Library tokens + empty token
+        self.n_parent_inputs = self.L + 1 - len(self.terminal_tokens)  # Parent sub-lib tokens + empty token
+        self.n_sibling_inputs = self.L + 1  # Library tokens + empty token
         self.EMPTY_ACTION = self.n_action_inputs - 1
         self.EMPTY_PARENT = self.n_parent_inputs - 1
         self.EMPTY_SIBLING = self.n_sibling_inputs - 1

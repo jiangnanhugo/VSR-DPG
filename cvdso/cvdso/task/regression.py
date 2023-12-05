@@ -1,7 +1,3 @@
-import numpy as np
-import pandas as pd
-import scipy
-
 """Factory functions for generating symbolic search tasks."""
 
 import numpy as np
@@ -41,15 +37,6 @@ class Task(object):
 
         prior = self.prior(actions, parent, sibling, dangling)  # (?, n_choices)
 
-        # Reset initial values when tree completes
-        if Program.n_objects > 1:  # NOTE: do this to save computuational cost only when n_objects > 1
-            finished = (dangling == 0)
-            dangling[finished] = 1
-            action[finished] = lib.EMPTY_ACTION
-            parent[finished] = lib.EMPTY_PARENT
-            sibling[finished] = lib.EMPTY_SIBLING
-            prior[finished] = self.prior.initial_prior()
-
         next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
         next_obs = next_obs.astype(np.float32)
         return next_obs, prior
@@ -65,8 +52,7 @@ class Task(object):
         # Order of observations: action, parent, sibling, dangling
         initial_obs = np.array([self.library.EMPTY_ACTION,
                                 self.library.EMPTY_PARENT,
-                                self.library.EMPTY_SIBLING,
-                                1],
+                                self.library.EMPTY_SIBLING, 1],
                                dtype=np.float32)
         return initial_obs
 
@@ -206,7 +192,8 @@ class RegressionTask(Task):
 
         else:
             # NMSE on test data (used to report final error)
-            nmse_test = self.data_query_oracle._evaluate_loss(self.X, y_hat)  # np.mean((self.y_test - y_hat) ** 2) / self.var_y_test
+            nmse_test = self.data_query_oracle._evaluate_loss(self.X,
+                                                              y_hat)  # np.mean((self.y_test - y_hat) ** 2) / self.var_y_test
 
             # Success is defined by NMSE on noiseless test data below a threshold
             success = False
@@ -221,33 +208,6 @@ class RegressionTask(Task):
 
 
 def make_regression_metric(name, y_train, *args):
-    """
-    Factory function for a regression metric. This includes a closures for
-    metric parameters and the variance of the training data.
-
-    Parameters
-    ----------
-
-    name : str
-        Name of metric. See all_metrics for supported metrics.
-
-    args : args
-        Metric-specific parameters
-
-    Returns
-    -------
-
-    metric : function
-        Regression metric mapping true and estimated values to a scalar.
-
-    invalid_reward: float or None
-        Reward value to use for invalid expression. If None, the training
-        algorithm must handle it, e.g. by rejecting the sample.
-
-    max_reward: float
-        Maximum possible reward under this metric.
-    """
-
     var_y = np.var(y_train)
 
     # For negative MSE-based rewards, invalid reward is the value of the reward function when y_hat = mean(y)

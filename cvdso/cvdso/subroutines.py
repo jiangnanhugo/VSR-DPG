@@ -29,10 +29,10 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
         Array of parent sub-library index corresponding to library indices.
 
     empty_parent : int
-        Integer value for an empty parent token. This is initially computed in controller.py.
+        Integer value for an empty parent token. This is initially computed in expression_decoder.py.
 
     empty_sibling : int
-        Integer value for an empty sibling token. This is intially computed in controller.py
+        Integer value for an empty sibling token. This is intially computed in expression_decoder.py
 
     Returns
     _______

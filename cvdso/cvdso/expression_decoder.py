@@ -38,7 +38,7 @@ class LinearWrapper():
         return self.cell.zero_state(batch_size, dtype)
 
 
-class Controller(object):
+class ExpressionDecoder(object):
     """
     Recurrent neural network (RNN) controller used to generate expressions.
 
@@ -56,8 +56,7 @@ class Controller(object):
     state_manager: dso.tf_state_manager.StateManager
         Object that handles the state features to be used
 
-    summary : bool
-        Write tensorboard summaries?
+    summary : bool.  Write tensorboard summaries?
 
     debug : int
         Debug level, also used in learn(). 0: No debug. 1: Print shapes and
@@ -66,8 +65,7 @@ class Controller(object):
     cell : str
         Recurrent cell to use. Supports 'lstm' and 'gru'.
 
-    num_layers : int
-        Number of RNN layers.
+    num_layers : int. Number of RNN layers.
 
     num_units : int or list of ints
         Number of RNN cell units in each of the RNN's layers. If int, the value
@@ -136,8 +134,6 @@ class Controller(object):
         ###self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
         self.n_objects = Program.n_objects
 
-
-
         # Find max_length from the LengthConstraint prior, if it exists
         # Both priors will never happen in the same experiment
         prior_max_length = None
@@ -149,8 +145,8 @@ class Controller(object):
                 break
 
         if prior_max_length is None:
-            assert max_length is not None, "max_length must be specified if "\
-                "there is no LengthConstraint."
+            assert max_length is not None, "max_length must be specified if " \
+                                           "there is no LengthConstraint."
             self.max_length = max_length
             print("WARNING: Maximum length not constrained. Sequences will "
                   "stop at {} and complete by repeating the first input "
@@ -167,7 +163,7 @@ class Controller(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        n_choices = Program.library.L
+        decoder_output_vocab_size = Program.library.L
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -176,24 +172,24 @@ class Controller(object):
         # Entropy decay vector
         if entropy_gamma is None:
             entropy_gamma = 1.0
-        entropy_gamma_decay = np.array([entropy_gamma**t for t in range(max_length)])
+        entropy_gamma_decay = np.array([entropy_gamma ** t for t in range(max_length)])
 
         # Build controller RNN
         with tf.name_scope("controller"):
-
             def make_initializer(name):
                 if name == "zeros":
                     return tf.zeros_initializer()
                 if name == "var_scale":
                     return tf.contrib.layers.variance_scaling_initializer(
-                            factor=0.5, mode='FAN_AVG', uniform=True, seed=0)
+                        factor=0.5, mode='FAN_AVG', uniform=True, seed=0)
                 raise ValueError("Did not recognize initializer '{}'".format(name))
 
             def make_cell(name, num_units, initializer):
                 if name == 'lstm':
                     return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
                 if name == 'gru':
-                    return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
+                    return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer,
+                                                  bias_initializer=initializer)
                 raise ValueError("Did not recognize cell type '{}'".format(name))
 
             # Create recurrent cell
@@ -201,31 +197,33 @@ class Controller(object):
                 num_units = [num_units] * num_layers
             initializer = make_initializer(initializer)
             cell = tf.contrib.rnn.MultiRNNCell([make_cell(cell, n, initializer=initializer) for n in num_units])
-            cell = LinearWrapper(cell=cell, output_size=n_choices)
+            cell = LinearWrapper(cell=cell, output_size=decoder_output_vocab_size)
 
             task = Program.task
             initial_obs = task.reset_task(prior)
             state_manager.setup_manager(self)
-            initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)]) # (?, obs_dim)
+            initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)])  # (?, obs_dim)
             initial_obs = state_manager.process_state(initial_obs)
 
             # Get initial prior
             initial_prior = self.prior.initial_prior()
             initial_prior = tf.constant(initial_prior, dtype=tf.float32)
-            initial_prior = tf.broadcast_to(initial_prior, [self.batch_size, n_choices])
+            initial_prior = tf.broadcast_to(initial_prior, [self.batch_size, decoder_output_vocab_size])
 
             # Define loop function to be used by tf.nn.raw_rnn.
             initial_cell_input = state_manager.get_tensor_input(initial_obs)
 
             def loop_fn(time, cell_output, cell_state, loop_state):
 
-                if cell_output is None: # time == 0
+                if cell_output is None:  # time == 0
                     finished = tf.zeros(shape=[self.batch_size], dtype=tf.bool)
                     obs = initial_obs
                     next_input = state_manager.get_tensor_input(obs)
-                    next_cell_state = cell.zero_state(batch_size=self.batch_size, dtype=tf.float32) # 2-tuple, each shape (?, num_units)
+                    next_cell_state = cell.zero_state(batch_size=self.batch_size,
+                                                      dtype=tf.float32)  # 2-tuple, each shape (?, num_units)
                     emit_output = None
-                    actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=False) # Read twice
+                    actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True,
+                                                clear_after_read=False)  # Read twice
                     obs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     priors_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
                     prior = initial_prior
@@ -236,7 +234,7 @@ class Controller(object):
                         priors_ta,
                         obs,
                         prior,
-                        lengths, # Unused until implementing variable length
+                        lengths,  # Unused until implementing variable length
                         finished)
                 else:
                     actions_ta, obs_ta, priors_ta, obs, prior, lengths, finished = loop_state
@@ -252,7 +250,7 @@ class Controller(object):
                     #     tf.logical_not(finished),
                     #     tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32)[:, 0],
                     #     tf.zeros(shape=[self.batch_size], dtype=tf.int32))
-                    next_actions_ta = actions_ta.write(time - 1, action) # Write chosen actions
+                    next_actions_ta = actions_ta.write(time - 1, action)  # Write chosen actions
                     # Get current action batch
                     actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
 
@@ -260,12 +258,12 @@ class Controller(object):
                     next_obs, next_prior = tf.py_func(func=task.get_next_obs,
                                                       inp=[actions, obs],
                                                       Tout=[tf.float32, tf.float32])
-                    next_prior.set_shape([None, n_choices])
+                    next_prior.set_shape([None, decoder_output_vocab_size])
                     next_obs.set_shape([None, task.OBS_DIM])
                     next_obs = state_manager.process_state(next_obs)
                     next_input = state_manager.get_tensor_input(next_obs)
-                    next_obs_ta = obs_ta.write(time - 1, obs) # Write OLD obs
-                    next_priors_ta = priors_ta.write(time - 1, prior) # Write OLD prior
+                    next_obs_ta = obs_ta.write(time - 1, obs)  # Write OLD obs
+                    next_priors_ta = priors_ta.write(time - 1, prior)  # Write OLD prior
                     finished = next_finished = tf.logical_or(
                         finished,
                         time >= max_length)
@@ -275,7 +273,7 @@ class Controller(object):
                     #     next_dangling == 0), # Currently, this will be 0 not just the first time, but also at max_length
                     #     time >= max_length)
                     next_lengths = tf.where(
-                        finished, # Ever finished
+                        finished,  # Ever finished
                         lengths,
                         tf.tile(tf.expand_dims(time + 1, 0), [self.batch_size]))
                     next_loop_state = (next_actions_ta,
@@ -293,9 +291,9 @@ class Controller(object):
                 _, _, loop_state = tf.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
                 actions_ta, obs_ta, priors_ta, _, _, _, _ = loop_state
 
-            self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0]) # (?, max_length)
-            self.obs = tf.transpose(obs_ta.stack(), perm=[1, 2, 0]) # (?, obs_dim, max_length)
-            self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2]) # (?, max_length, n_choices)
+            self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0])  # (?, max_length)
+            self.obs = tf.transpose(obs_ta.stack(), perm=[1, 2, 0])  # (?, obs_dim, max_length)
+            self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2])  # (?, max_length, decoder_output_vocab_size)
 
         # Generates dictionary containing placeholders needed for a batch of sequences
         def make_batch_ph(name):
@@ -303,7 +301,7 @@ class Controller(object):
                 batch_ph = {
                     "actions": tf.placeholder(tf.int32, [None, max_length]),
                     "obs": tf.placeholder(tf.float32, [None, task.OBS_DIM, self.max_length]),
-                    "priors": tf.placeholder(tf.float32, [None, max_length, n_choices]),
+                    "priors": tf.placeholder(tf.float32, [None, max_length, decoder_output_vocab_size]),
                     "lengths": tf.placeholder(tf.int32, [None, ]),
                     "rewards": tf.placeholder(tf.float32, [None], name="r"),
                     "on_policy": tf.placeholder(tf.int32, [None, ])
@@ -321,7 +319,7 @@ class Controller(object):
             with tf.variable_scope('policy', reuse=True):
                 logits, _ = tf.nn.dynamic_rnn(cell=cell,
                                               inputs=state_manager.get_tensor_input(B.obs),
-                                              sequence_length=B.lengths, # Backpropagates only through sequence length
+                                              sequence_length=B.lengths,  # Backpropagates only through sequence length
                                               dtype=tf.float32)
             logits += B.priors
             probs = tf.nn.softmax(logits)
@@ -334,15 +332,17 @@ class Controller(object):
             mask = tf.sequence_mask(B.lengths, maxlen=max_length, dtype=tf.float32)
 
             # Negative log probabilities of sequences
-            actions_one_hot = tf.one_hot(B.actions, depth=n_choices, axis=-1, dtype=tf.float32)
-            neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2) # Sum over action dim
+            actions_one_hot = tf.one_hot(B.actions, depth=decoder_output_vocab_size, axis=-1, dtype=tf.float32)
+            neglogp_per_step = safe_cross_entropy(actions_one_hot, logprobs, axis=2)  # Sum over action dim
 
-            neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1) # Sum over time dim
+            neglogp = tf.reduce_sum(neglogp_per_step * mask, axis=1)  # Sum over time dim
 
             # If entropy_gamma = 1, entropy_gamma_decay_mask == mask
-            entropy_gamma_decay_mask = entropy_gamma_decay * mask # ->(batch_size, max_length)
-            entropy_per_step = safe_cross_entropy(probs, logprobs, axis=2) # Sum over action dim -> (batch_size, max_length)
-            entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask, axis=1) # Sum over time dim -> (batch_size, )
+            entropy_gamma_decay_mask = entropy_gamma_decay * mask  # ->(batch_size, max_length)
+            entropy_per_step = safe_cross_entropy(probs, logprobs,
+                                                  axis=2)  # Sum over action dim -> (batch_size, max_length)
+            entropy = tf.reduce_sum(entropy_per_step * entropy_gamma_decay_mask,
+                                    axis=1)  # Sum over time dim -> (batch_size, )
 
             return neglogp, entropy
 
@@ -369,7 +369,6 @@ class Controller(object):
             entropy_loss = -self.entropy_weight * tf.reduce_mean(entropy, name="entropy_loss")
             loss = entropy_loss
 
-
             if not pqt or (pqt and pqt_use_pg):
                 # Baseline is the worst of the current samples r
                 pg_loss = tf.reduce_mean((r - self.baseline) * neglogp, name="pg_loss")
@@ -383,15 +382,6 @@ class Controller(object):
                 loss += pqt_loss
 
             self.loss = loss
-
-        def make_optimizer(name, learning_rate):
-            if name == "adam":
-                return tf.train.AdamOptimizer(learning_rate=learning_rate)
-            if name == "rmsprop":
-                return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
-            if name == "sgd":
-                return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-            raise ValueError("Did not recognize optimizer '{}'".format(name))
 
         # Create training op
         optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
@@ -421,7 +411,7 @@ class Controller(object):
             if self.summary:
                 if not pqt or (pqt and pqt_use_pg):
                     tf.summary.scalar("pg_loss", pg_loss)
-                    
+
                 if pqt:
                     tf.summary.scalar("pqt_loss", pqt_loss)
                 tf.summary.scalar("entropy_loss", entropy_loss)
@@ -440,21 +430,19 @@ class Controller(object):
             else:
                 self.summaries = tf.no_op()
 
-    def sample(self, n):
+    def sample(self, batch_size):
         """Sample batch of n expressions"""
 
-        feed_dict = {self.batch_size : n}
-
+        feed_dict = {self.batch_size: batch_size}
         actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
 
         return actions, obs, priors
-
 
     def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
 
         feed_dict = {
-            self.memory_batch_ph : memory_batch
+            self.memory_batch_ph: memory_batch
         }
 
         if log:
@@ -464,19 +452,30 @@ class Controller(object):
         probs = self.sess.run([fetch], feed_dict=feed_dict)[0]
         return probs
 
-
     def train_step(self, b, sampled_batch, pqt_batch):
         """Computes loss, trains model, and returns summaries."""
         feed_dict = {
-            self.baseline : b,
-            self.sampled_batch_ph : sampled_batch
+            self.baseline: b,
+            self.sampled_batch_ph: sampled_batch
         }
 
         if self.pqt:
             feed_dict.update({
-                self.pqt_batch_ph : pqt_batch
+                self.pqt_batch_ph: pqt_batch
             })
 
         summaries, _ = self.sess.run([self.summaries, self.train_op], feed_dict=feed_dict)
 
         return summaries
+
+
+#
+def make_optimizer(name, learning_rate):
+    if name == "adam":
+        return tf.train.AdamOptimizer(learning_rate=learning_rate)
+    elif name == "rmsprop":
+        return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
+    elif name == "sgd":
+        return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+    else:
+        raise ValueError("Did not recognize optimizer '{}'".format(name))

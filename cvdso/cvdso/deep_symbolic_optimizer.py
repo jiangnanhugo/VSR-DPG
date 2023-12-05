@@ -17,17 +17,17 @@ import tensorflow as tf
 import commentjson as json
 
 from cvdso.task.regression import set_task
-from cvdso.controller import Controller
+from cvdso.expression_decoder import ExpressionDecoder
 from cvdso.train import learn
 from cvdso.prior import make_prior
 from cvdso.program import Program
-from cvdso.config_utils import load_config
+from cvdso.utils import load_config
 from cvdso.tf_state_manager import make_state_manager as manager_make_state_manager
 
 
-class DeepSymbolicOptimizer(object):
+class CVDeepSymbolicOptimizer(object):
     """
-    Deep symbolic optimization model. Includes model hyperparameters and
+    control variable for Deep symbolic optimization model. Includes model hyperparameters and
     training configuration.
 
     Parameters
@@ -54,6 +54,7 @@ class DeepSymbolicOptimizer(object):
         allowed_input_tokens = np.ones(nvar, dtype=np.int32)
         self.config_task['allowed_input'] = allowed_input_tokens
         self.config_task['data_query_oracle'] = self.data_query_oracle
+
         self.task_name = "_".join(['regression', self.config_filename.split("/")[-1],
                                    self.data_query_oracle._get_eq_name().split('/')[-1],
                                    self.data_query_oracle.noise_type,
@@ -76,14 +77,14 @@ class DeepSymbolicOptimizer(object):
         # Prepare training parameters
         self.prior = self.make_prior()
         self.state_manager = self.make_state_manager()
-        self.controller = self.make_controller()
+        self.expression_decoder = self.make_expression_decoder()
         self.gp_controller = self.make_gp_controller()
 
     def train(self):
         # Train the model
         result = {"seed": self.config_experiment["seed"]}  # Seed listed first
         result_dict = learn(self.sess,
-                            self.controller,
+                            self.expression_decoder,
                             self.pool,
                             self.gp_controller,
                             self.output_file,
@@ -99,7 +100,7 @@ class DeepSymbolicOptimizer(object):
         self.config_prior = self.config["prior"]
         self.config_training = self.config["training"]
         self.config_state_manager = self.config["state_manager"]
-        self.config_controller = self.config["controller"]
+        self.config_expression_decoder = self.config["controller"]
         self.config_gp_meld = self.config["gp_meld"]
         self.config_experiment = self.config["experiment"]
 
@@ -116,10 +117,10 @@ class DeepSymbolicOptimizer(object):
                     self.config_experiment["seed"] = self.config_experiment["starting_seed"]
                     del self.config_experiment["starting_seed"]
                 with open(path, 'w') as f:
-                    cp_config=copy.copy(self.config)
-                    cp_config['task']['dataX']='dataX'
+                    cp_config = copy.copy(self.config)
+                    cp_config['task']['dataX'] = 'dataX'
                     cp_config['task']['data_query_oracle'] = 'data_query_oracle'
-                    cp_config['task']['allowed_input']='allowed_input'
+                    cp_config['task']['allowed_input'] = 'allowed_input'
                     json.dump(cp_config, f, indent=4)
             self.config_experiment["seed"] = backup_seed
 
@@ -154,12 +155,12 @@ class DeepSymbolicOptimizer(object):
     def make_state_manager(self):
         return manager_make_state_manager(self.config_state_manager)
 
-    def make_controller(self):
-        controller = Controller(self.sess,
-                                self.prior,
-                                self.state_manager,
-                                **self.config_controller)
-        return controller
+    def make_expression_decoder(self):
+        decoder = ExpressionDecoder(self.sess,
+                                    self.prior,
+                                    self.state_manager,
+                                    **self.config_expression_decoder)
+        return decoder
 
     def make_gp_controller(self):
         return None
@@ -173,10 +174,9 @@ class DeepSymbolicOptimizer(object):
         Program.set_complexity(complexity)
 
         # Set the constant optimizer
-        const_optimizer = self.config_training["const_optimizer"]
         const_params = self.config_training["const_params"]
         const_params = const_params if const_params is not None else {}
-        Program.set_const_optimizer(const_optimizer, **const_params)
+        Program.set_const_optimizer(**const_params)
 
         pool = None
         n_cores_batch = self.config_training.get("n_cores_batch")
@@ -209,9 +209,7 @@ class DeepSymbolicOptimizer(object):
 
         # Generate save path
 
-        save_path = os.path.join(
-            self.config_experiment["logdir"],
-            '_'.join([self.task_name, timestamp]))
+        save_path = self.config_experiment["logdir"]+"_log/"
         self.config_experiment["task_name"] = self.task_name
         self.config_experiment["save_path"] = save_path
         os.makedirs(save_path, exist_ok=True)

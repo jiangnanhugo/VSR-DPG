@@ -2,11 +2,8 @@
 
 import array
 import warnings
-from textwrap import indent
 
 import numpy as np
-from sympy.parsing.sympy_parser import parse_expr
-from sympy import pretty
 
 from cvdso.functions import PlaceholderConstant
 from cvdso.const import make_const_optimizer
@@ -25,7 +22,6 @@ def _finish_tokens(tokens):
         defines an expression's pre-order traversal.
 
     Returns
-    _______
     tokens : list of ints
         A list of integers corresponding to tokens in the library. The list
         defines an expression's pre-order traversal. "Dangling" programs are
@@ -33,7 +29,7 @@ def _finish_tokens(tokens):
 
     """
 
-    n_objects = Program.n_objects
+    n_objects = 1
 
     arities = np.array([Program.library.arities[t] for t in tokens])
     # Number of dangling nodes, returns the cumsum up to each point
@@ -51,57 +47,6 @@ def _finish_tokens(tokens):
         tokens = np.append(tokens, np.random.choice(Program.library.input_tokens, size=dangling[-1]))
 
     return tokens
-
-
-def from_str_tokens(str_tokens, skip_cache=False):
-    """
-    Memoized function to generate a Program from a list of str and/or float.
-    See from_tokens() for details.
-
-    Parameters
-    ----------
-    str_tokens : str | list of (str | float)
-        Either a comma-separated string of tokens and/or floats, or a list of
-        str and/or floats.
-
-    skip_cache : bool
-        See from_tokens().
-
-    Returns
-    -------
-    program : Program
-        See from_tokens().
-    """
-
-    # Convert str to list of str
-    if isinstance(str_tokens, str):
-        str_tokens = str_tokens.split(",")
-
-    # Convert list of str|float to list of tokens
-    if isinstance(str_tokens, list):
-        traversal = []
-        constants = []
-        for s in str_tokens:
-            if s in Program.library.names:
-                t = Program.library.names.index(s.lower())
-            elif U.is_float(s):
-                assert "const" not in str_tokens, "Currently does not support both placeholder and hard-coded constants."
-                t = Program.library.const_token
-                constants.append(float(s))
-            else:
-                raise ValueError("Did not recognize token {}.".format(s))
-            traversal.append(t)
-        traversal = np.array(traversal, dtype=np.int32)
-    else:
-        raise ValueError("Input must be list or string.")
-
-    # Generate base Program (with "const" for constants)
-    p = from_tokens(traversal, skip_cache=skip_cache)
-
-    # Replace any constants
-    p.set_constants(constants)
-
-    return p
 
 
 def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
@@ -246,33 +191,14 @@ class Program(object):
         self.off_policy_count = 0 if on_policy else 1
         self.originally_on_policy = on_policy  # Note if a program was created on policy
 
-        if Program.n_objects > 1:
-            # Fill list of multi-traversals
-            danglings = -1 * np.arange(1, Program.n_objects + 1)
-            self.traversals = []  # list to keep track of each multi-traversal
-            i_prev = 0
-            arity_list = []  # list of arities for each node in the overall traversal
-            for i, token in enumerate(self.traversal):
-                arities = token.arity
-                arity_list.append(arities)
-                dangling = 1 + np.cumsum(np.array(arity_list) - 1)[-1]
-                if (dangling - 1) in danglings:
-                    trav_object = self.traversal[i_prev:i + 1]
-                    self.traversals.append(trav_object)
-                    i_prev = i + 1
-                    """
-                    Keep only what dangling values have not yet been calculated. Don't want dangling to go down and up (e.g hits -1, goes back up to 0 before hitting -2)
-                    and trigger the end of a traversal at the wrong time
-                    """
-                    danglings = danglings[danglings != dangling - 1]
-
     def __getstate__(self):
 
         have_r = "r" in self.__dict__
         have_evaluate = "evaluate" in self.__dict__
         possible_const = have_r or have_evaluate
 
-        state_dict = {'tokens': self.tokens,  # string rep comes out different if we cast to array, so we can get cache misses.
+        state_dict = {'tokens': self.tokens,
+                      # string rep comes out different if we cast to array, so we can get cache misses.
                       'have_r': bool(have_r),
                       'r': float(self.r) if have_r else float(-np.inf),
                       'have_evaluate': bool(have_evaluate),
@@ -280,10 +206,7 @@ class Program(object):
                       'const': array.array('d', self.get_constants()) if possible_const else float(-np.inf),
                       'on_policy_count': bool(self.on_policy_count),
                       'off_policy_count': bool(self.off_policy_count),
-                      'originally_on_policy': bool(self.originally_on_policy),
-                      'invalid': bool(self.invalid),
-                      'error_node': array.array('u', "" if not self.invalid else self.error_node),
-                      'error_type': array.array('u', "" if not self.invalid else self.error_type)}
+                      'originally_on_policy': bool(self.originally_on_policy),}
 
         # In the future we might also return sympy_expr and complexity if we ever need to compute in parallel 
 
@@ -328,24 +251,11 @@ class Program(object):
         result : np.array or list of np.array
             In a single-object Program, returns just an array. In a multi-object Program, returns a list of arrays.
         """
-        if Program.n_objects > 1:
-            if not Program.protected:
-                result = []
-                invalids = []
-                for trav in self.traversals:
-                    val, invalid, self.error_node, self.error_type = Program.execute_function(trav, X)
-                    result.append(val)
-                    invalids.append(invalid)
-                self.invalid = any(invalids)
-            else:
-                result = [Program.execute_function(trav, X) for trav in self.traversals]
-            return result
+        if not Program.protected:
+            result = Program.execute_function(self.traversal, X)
         else:
-            if not Program.protected:
-                result, self.invalid, self.error_node, self.error_type = Program.execute_function(self.traversal, X)
-            else:
-                result = Program.execute_function(self.traversal, X)
-            return result
+            result = Program.execute_function(self.traversal, X)
+        return result
 
     def optimize(self):
         """
@@ -392,13 +302,8 @@ class Program(object):
             self.traversal[self.const_pos[i]] = PlaceholderConstant(const)
 
     @classmethod
-    def set_n_objects(cls, n_objects):
-        Program.n_objects = n_objects
-
-    @classmethod
     def clear_cache(cls):
         """Clears the class' cache"""
-
         cls.cache = {}
 
     @classmethod
@@ -409,10 +314,10 @@ class Program(object):
         Program.library = task.library
 
     @classmethod
-    def set_const_optimizer(cls, name, **kwargs):
+    def set_const_optimizer(cls, **kwargs):
         """Sets the class' constant optimizer"""
 
-        const_optimizer = make_const_optimizer(name, **kwargs)
+        const_optimizer = make_const_optimizer(**kwargs)
         Program.const_optimizer = const_optimizer
 
     @classmethod
@@ -440,8 +345,6 @@ class Program(object):
         """Sets which execute method to use"""
 
         # Check if cython_execute can be imported; if not, fall back to python_execute
-
-
         from cvdso.execute import cython_execute
         execute_function = cython_execute
         Program.have_cython = True
@@ -452,36 +355,6 @@ class Program(object):
         else:
             Program.protected = False
 
-            class InvalidLog():
-                """Log class to catch and record numpy warning messages"""
-
-                def __init__(self):
-                    self.error_type = None  # One of ['divide', 'overflow', 'underflow', 'invalid']
-                    self.error_node = None  # E.g. 'exp', 'log', 'true_divide'
-                    self.new_entry = False  # Flag for whether a warning has been encountered during a call to Program.execute()
-
-                def write(self, message):
-                    """This is called by numpy when encountering a warning"""
-
-                    if not self.new_entry:  # Only record the first warning encounter
-                        message = message.strip().split(' ')
-                        self.error_type = message[1]
-                        self.error_node = message[-1]
-                    self.new_entry = True
-
-                def update(self):
-                    """If a floating-point error was encountered, set Program.invalid
-                    to True and record the error type and error node."""
-
-                    if self.new_entry:
-                        self.new_entry = False
-                        return True, self.error_type, self.error_node
-                    else:
-                        return False, None, None
-
-            invalid_log = InvalidLog()
-            np.seterrcall(invalid_log)  # Tells numpy to call InvalidLog.write() when encountering a warning
-
             # Define closure for execute function
             def unsafe_execute(traversal, X):
                 """This is a wrapper for execute_function. If a floating-point error
@@ -489,10 +362,7 @@ class Program(object):
                 and the appropriate nan/inf value is returned. It's up to the task's
                 reward function to decide how to handle nans/infs."""
 
-                with np.errstate(all='log'):
-                    y = execute_function(traversal, X)
-                    invalid, error_node, error_type = invalid_log.update()
-                    return y, invalid, error_node, error_type
+                return execute_function(traversal, X)
 
             Program.execute_function = unsafe_execute
 
@@ -538,31 +408,11 @@ class Program(object):
         tree --> serialized tree --> SymPy expression
         """
 
-        if Program.n_objects == 1:
-            tree = self.traversal.copy()
-            tree = build_tree(tree)
-            tree = convert_to_sympy(tree)
-            try:
-                expr = parse_expr(tree.__repr__())  # SymPy expression
-            except:
-                expr = tree.__repr__()
-            return [expr]
-        else:
-            exprs = []
-            for i in range(len(self.traversals)):
-                tree = self.traversals[i].copy()
-                tree = build_tree(tree)
-                tree = convert_to_sympy(tree)
-                try:
-                    expr = parse_expr(tree.__repr__())  # SymPy expression
-                except:
-                    expr = tree.__repr__()
-                exprs.append(expr)
-            return exprs
-
-    def pretty(self):
-        """Returns pretty printed string of the program"""
-        return [pretty(self.sympy_expr[i]) for i in range(Program.n_objects)]
+        exprs = []
+        for i in range(len(self.traversals)):
+            tree = self.traversals[i].copy()
+            exprs.append(tree)
+        return exprs
 
     def print_stats(self):
         """Prints the statistics of the program
@@ -579,97 +429,6 @@ class Program(object):
         self.task.rand_draw_data_with_X_fixed()
         self.task.print_reward_function_all_metrics(self)
 
-        if Program.n_objects == 1:
-            print("\tExpression:")
-            print("{}\n".format(indent(self.pretty()[0], '\t  ')))
-        else:
-            for i in range(Program.n_objects):
-                print("\tExpression {}:".format(i))
-                print("{}\n".format(indent(self.pretty()[i], '\t  ')))
-
     def __repr__(self):
         """Prints the program's traversal"""
         return ','.join([repr(t) for t in self.traversal])
-
-
-###############################################################################
-# Everything below this line is currently only being used for pretty printing #
-###############################################################################
-
-
-# Possible library elements that sympy capitalizes
-capital = ["add", "mul", "pow"]
-
-
-class Node(object):
-    """Basic tree class supporting printing"""
-
-    def __init__(self, val):
-        self.val = val
-        self.children = []
-
-    def __repr__(self):
-        children_repr = ",".join(repr(child) for child in self.children)
-        if len(self.children) == 0:
-            return self.val  # Avoids unnecessary parantheses, e.g. x1()
-        return "{}({})".format(self.val, children_repr)
-
-
-def build_tree(traversal):
-    """Recursively builds tree from pre-order traversal"""
-
-    op = traversal.pop(0)
-    n_children = op.arity
-    val = repr(op)
-    if val in capital:
-        val = val.capitalize()
-
-    node = Node(val)
-
-    for _ in range(n_children):
-        node.children.append(build_tree(traversal))
-
-    return node
-
-
-def convert_to_sympy(node):
-    """Adjusts trees to only use node values supported by sympy"""
-
-    if node.val == "div":
-        node.val = "Mul"
-        new_right = Node("Pow")
-        new_right.children.append(node.children[1])
-        new_right.children.append(Node("-1"))
-        node.children[1] = new_right
-
-    elif node.val == "sub":
-        node.val = "Add"
-        new_right = Node("Mul")
-        new_right.children.append(node.children[1])
-        new_right.children.append(Node("-1"))
-        node.children[1] = new_right
-
-    elif node.val == "inv":
-        node.val = Node("Pow")
-        node.children.append(Node("-1"))
-
-    elif node.val == "neg":
-        node.val = Node("Mul")
-        node.children.append(Node("-1"))
-
-    elif node.val == "n2":
-        node.val = "Pow"
-        node.children.append(Node("2"))
-
-    elif node.val == "n3":
-        node.val = "Pow"
-        node.children.append(Node("3"))
-
-    elif node.val == "n4":
-        node.val = "Pow"
-        node.children.append(Node("4"))
-
-    for child in node.children:
-        convert_to_sympy(child)
-
-    return node
