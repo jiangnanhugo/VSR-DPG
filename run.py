@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import datetime
 import random
 import click
-
+from cvdso.production_rules import get_production_rules
 from cvdso.deep_symbolic_optimizer import CVDeepSymbolicOptimizer
 from cvdso.logeval import LogEval
 from cvdso.utils import load_config
@@ -42,7 +42,6 @@ def train_cvdso(config, dataX, data_query_oracle, config_filename):
 
 def print_summary(config, runs, messages):
     text = '\n== EXPERIMENT SETUP START ===========\n'
-    text += 'Task type            : regression\n'
     text += 'Starting seed        : {}\n'.format(config["experiment"]["seed"])
     text += 'Runs                 : {}\n'.format(runs)
     if len(messages) > 0:
@@ -71,8 +70,8 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     config = load_config(config_template)
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale)
     dataXgen = DataX(data_query_oracle.get_vars_range_and_types())
-
-
+    nvar = data_query_oracle.get_nvars()
+    operators_set = data_query_oracle.get_operators_set()
 
     # Overwrite config seed, if specified
     seed = int(time.perf_counter() * 10000) % 1000007

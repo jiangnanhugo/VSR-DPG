@@ -782,7 +782,7 @@ class SoftLengthPrior(Prior):
         self.scale = scale
         self.n_objects = Program.n_objects
 
-        self.terminal_mask = np.zeros((self.L,), dtype=np.bool)
+        self.terminal_mask = np.zeros((self.L,), dtype=bool)
         self.terminal_mask[self.library.terminal_tokens] = True
 
         self.nonterminal_mask = ~self.terminal_mask

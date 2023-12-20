@@ -188,12 +188,6 @@ class LogEval():
             "{} - {}".format(self.PLOT_HELPER[log_type]["name"], self.config["experiment"]["task_name"]),
             fontsize=14)
         plt.tight_layout()
-        if save_plots:
-            save_path = os.path.join(self.save_path, "dso_{}_plot_{}.png".format(self.config["experiment"]["task_name"], log_type))
-            print("  Saving {} plot to {}".format(self.PLOT_HELPER[log_type]["name"], save_path))
-            plt.savefig(save_path)
-        if show_plots:
-            plt.show()
         plt.close()
 
     def analyze_log(self, show_count=5, show_hof=True, show_pf=True, show_plots=False, save_plots=False):
@@ -217,20 +211,20 @@ class LogEval():
                     print('  {:3d}: S={:03d} R={:8.6f} <-- {}'.format(
                         i, self.hof_df.iloc[i]['seed'], self.hof_df.iloc[i]['r'],
                         self.hof_df.iloc[i]['expression']))
-                if show_plots or save_plots:
-                    self.plot_results(
-                        self.hof_df, log_type="hof", boxplot_on=True,
-                        show_plots=show_plots, save_plots=save_plots)
+                # if show_plots or save_plots:
+                #     self.plot_results(
+                #         self.hof_df, log_type="hof", boxplot_on=True,
+                #         show_plots=show_plots, save_plots=save_plots)
             if self.pf_df is not None and show_pf:
                 print('Pareto Front ({} of {})____'.format(min(show_count,len(self.pf_df.index)), len(self.pf_df.index)))
                 for i in range(min(show_count,len(self.pf_df.index))):
                     print('  {:3d}: S={:03d} R={:8.6f} C={:.2f} <-- {}'.format(
                         i, self.pf_df.iloc[i]['seed'], self.pf_df.iloc[i]['r'],
                         self.pf_df.iloc[i]['complexity'], self.pf_df.iloc[i]['expression']))
-                if show_plots or save_plots:
-                    self.plot_results(
-                        self.pf_df, log_type="pf",
-                        show_plots=show_plots, save_plots=save_plots)
+                # if show_plots or save_plots:
+                #     self.plot_results(
+                #         self.pf_df, log_type="pf",
+                #         show_plots=show_plots, save_plots=save_plots)
         except FloatingPointError:
             print("Error when analyzing!")
             for warning in self.warnings:

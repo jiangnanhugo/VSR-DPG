@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 
 from cvdso.functions import PlaceholderConstant
-from cvdso.const import make_const_optimizer
+from cvdso.const import ScipyMinimize
 from cvdso.utils import cached_property
 import cvdso.utils as U
 
@@ -316,9 +316,7 @@ class Program(object):
     @classmethod
     def set_const_optimizer(cls, **kwargs):
         """Sets the class' constant optimizer"""
-
-        const_optimizer = make_const_optimizer(**kwargs)
-        Program.const_optimizer = const_optimizer
+        Program.const_optimizer = ScipyMinimize(**kwargs)
 
     @classmethod
     def set_complexity(cls, name):

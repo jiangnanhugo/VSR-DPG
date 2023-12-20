@@ -14,6 +14,7 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import commentjson as json
 
 from cvdso.task.regression import set_task
@@ -63,12 +64,12 @@ class CVDeepSymbolicOptimizer(object):
     def setup(self):
         # Clear the cache and reset the compute graph
         Program.clear_cache()
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
 
         # Generate objects needed for training and set seeds
         self.pool = self.make_pool_and_set_task()
         self.set_seeds()  # Must be called _after_ resetting graph and _after_ setting task
-        self.sess = tf.Session()
+        self.sess = tf.compat.v1.Session()
 
         # Save complete configuration file
         self.output_file = self.make_output_file()
@@ -144,7 +145,7 @@ class CVDeepSymbolicOptimizer(object):
         shifted_seed = seed + zlib.adler32(self.task_name.encode("utf-8"))
 
         # Set the seeds using the shifted seed
-        tf.random.set_random_seed(shifted_seed)
+        tf.compat.v1.random.set_random_seed(shifted_seed)
         np.random.seed(shifted_seed)
         random.seed(shifted_seed)
 
@@ -222,12 +223,12 @@ class CVDeepSymbolicOptimizer(object):
 
     def save(self, save_path):
 
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
         saver.save(self.sess, save_path)
 
     def load(self, load_path):
 
         if self.sess is None:
             self.setup()
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
         saver.restore(self.sess, load_path)

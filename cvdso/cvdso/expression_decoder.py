@@ -20,9 +20,9 @@ class LinearWrapper():
         self._output_size = output_size
 
     def __call__(self, inputs, state, scope=None):
-        with tf.variable_scope(type(self).__name__):
+        with tf.compat.v1.variable_scope(type(self).__name__):
             outputs, state = self.cell(inputs, state, scope=scope)
-            logits = tf.layers.dense(outputs, units=self._output_size)
+            logits = tf.compat.v1.layers.dense(outputs, units=self._output_size)
 
         return logits, state
 
@@ -166,8 +166,8 @@ class ExpressionDecoder(object):
         decoder_output_vocab_size = Program.library.L
 
         # Placeholders, computed after instantiating expressions
-        self.batch_size = tf.placeholder(dtype=tf.int32, shape=(), name="batch_size")
-        self.baseline = tf.placeholder(dtype=tf.float32, shape=(), name="baseline")
+        self.batch_size = tf.compat.v1.placeholder(dtype=tf.int32, shape=(), name="batch_size")
+        self.baseline = tf.compat.v1.placeholder(dtype=tf.float32, shape=(), name="baseline")
 
         # Entropy decay vector
         if entropy_gamma is None:
@@ -175,20 +175,20 @@ class ExpressionDecoder(object):
         entropy_gamma_decay = np.array([entropy_gamma ** t for t in range(max_length)])
 
         # Build controller RNN
-        with tf.name_scope("controller"):
+        with tf.compat.v1.name_scope("controller"):
             def make_initializer(name):
                 if name == "zeros":
-                    return tf.zeros_initializer()
+                    return tf.compat.v1.zeros_initializer()
                 if name == "var_scale":
-                    return tf.contrib.layers.variance_scaling_initializer(
-                        factor=0.5, mode='FAN_AVG', uniform=True, seed=0)
+                    return tf.compat.v1.keras.initializers.VarianceScaling(
+                        scale=0.5, mode='fan_avg', distribution=("uniform" if True else "truncated_normal"), seed=0)
                 raise ValueError("Did not recognize initializer '{}'".format(name))
 
             def make_cell(name, num_units, initializer):
                 if name == 'lstm':
-                    return tf.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
+                    return tf.compat.v1.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
                 if name == 'gru':
-                    return tf.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer,
+                    return tf.compat.v1.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer,
                                                   bias_initializer=initializer)
                 raise ValueError("Did not recognize cell type '{}'".format(name))
 
@@ -196,7 +196,7 @@ class ExpressionDecoder(object):
             if isinstance(num_units, int):
                 num_units = [num_units] * num_layers
             initializer = make_initializer(initializer)
-            cell = tf.contrib.rnn.MultiRNNCell([make_cell(cell, n, initializer=initializer) for n in num_units])
+            cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell([make_cell(cell, n, initializer=initializer) for n in num_units])
             cell = LinearWrapper(cell=cell, output_size=decoder_output_vocab_size)
 
             task = Program.task
@@ -210,8 +210,7 @@ class ExpressionDecoder(object):
             initial_prior = tf.constant(initial_prior, dtype=tf.float32)
             initial_prior = tf.broadcast_to(initial_prior, [self.batch_size, decoder_output_vocab_size])
 
-            # Define loop function to be used by tf.nn.raw_rnn.
-            initial_cell_input = state_manager.get_tensor_input(initial_obs)
+            # Define loop function to be used by tf.nn.raw_rnn
 
             def loop_fn(time, cell_output, cell_state, loop_state):
 
@@ -241,9 +240,7 @@ class ExpressionDecoder(object):
                     logits = cell_output + prior
                     next_cell_state = cell_state
                     emit_output = logits
-                    # tf.multinomial is deprecated: TF recommends switching to tf.random.categorical
-                    # action = tf.random.categorical(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
-                    action = tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32, seed=1)[:, 0]
+                    action = tf.random.categorical(logits=logits, num_samples=1, dtype=tf.int32, seed=1)[:, 0]
 
                     # When implementing variable length:
                     # action = tf.where(
@@ -255,7 +252,7 @@ class ExpressionDecoder(object):
                     actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
 
                     # Compute obs and prior
-                    next_obs, next_prior = tf.py_func(func=task.get_next_obs,
+                    next_obs, next_prior = tf.compat.v1.py_func(func=task.get_next_obs,
                                                       inp=[actions, obs],
                                                       Tout=[tf.float32, tf.float32])
                     next_prior.set_shape([None, decoder_output_vocab_size])
@@ -272,7 +269,7 @@ class ExpressionDecoder(object):
                     #     finished, # Already finished
                     #     next_dangling == 0), # Currently, this will be 0 not just the first time, but also at max_length
                     #     time >= max_length)
-                    next_lengths = tf.where(
+                    next_lengths = tf.compat.v1.where(
                         finished,  # Ever finished
                         lengths,
                         tf.tile(tf.expand_dims(time + 1, 0), [self.batch_size]))
@@ -287,8 +284,8 @@ class ExpressionDecoder(object):
                 return finished, next_input, next_cell_state, emit_output, next_loop_state
 
             # Returns RNN emit outputs TensorArray (i.e. logits), final cell state, and final loop state
-            with tf.variable_scope('policy'):
-                _, _, loop_state = tf.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
+            with tf.compat.v1.variable_scope('policy'):
+                _, _, loop_state = tf.compat.v1.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
                 actions_ta, obs_ta, priors_ta, _, _, _, _ = loop_state
 
             self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0])  # (?, max_length)
@@ -297,27 +294,27 @@ class ExpressionDecoder(object):
 
         # Generates dictionary containing placeholders needed for a batch of sequences
         def make_batch_ph(name):
-            with tf.name_scope(name):
+            with tf.compat.v1.name_scope(name):
                 batch_ph = {
-                    "actions": tf.placeholder(tf.int32, [None, max_length]),
-                    "obs": tf.placeholder(tf.float32, [None, task.OBS_DIM, self.max_length]),
-                    "priors": tf.placeholder(tf.float32, [None, max_length, decoder_output_vocab_size]),
-                    "lengths": tf.placeholder(tf.int32, [None, ]),
-                    "rewards": tf.placeholder(tf.float32, [None], name="r"),
-                    "on_policy": tf.placeholder(tf.int32, [None, ])
+                    "actions": tf.compat.v1.placeholder(tf.int32, [None, max_length]),
+                    "obs": tf.compat.v1.placeholder(tf.float32, [None, task.OBS_DIM, self.max_length]),
+                    "priors": tf.compat.v1.placeholder(tf.float32, [None, max_length, decoder_output_vocab_size]),
+                    "lengths": tf.compat.v1.placeholder(tf.int32, [None, ]),
+                    "rewards": tf.compat.v1.placeholder(tf.float32, [None], name="r"),
+                    "on_policy": tf.compat.v1.placeholder(tf.int32, [None, ])
                 }
                 batch_ph = Batch(**batch_ph)
 
             return batch_ph
 
         def safe_cross_entropy(p, logq, axis=-1):
-            safe_logq = tf.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
+            safe_logq = tf.compat.v1.where(tf.equal(p, 0.), tf.ones_like(logq), logq)
             return - tf.reduce_sum(p * safe_logq, axis)
 
         # Generates tensor for neglogp of a given batch
         def make_neglogp_and_entropy(B):
-            with tf.variable_scope('policy', reuse=True):
-                logits, _ = tf.nn.dynamic_rnn(cell=cell,
+            with tf.compat.v1.variable_scope('policy', reuse=True):
+                logits, _ = tf.compat.v1.nn.dynamic_rnn(cell=cell,
                                               inputs=state_manager.get_tensor_input(B.obs),
                                               sequence_length=B.lengths,  # Backpropagates only through sequence length
                                               dtype=tf.float32)
@@ -360,7 +357,7 @@ class ExpressionDecoder(object):
             self.pqt_batch_ph = make_batch_ph("pqt_batch")
 
         # Setup losses
-        with tf.name_scope("losses"):
+        with tf.compat.v1.name_scope("losses"):
 
             neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
             r = self.sampled_batch_ph.rewards
@@ -385,21 +382,21 @@ class ExpressionDecoder(object):
 
         # Create training op
         optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
-        with tf.name_scope("train"):
+        with tf.compat.v1.name_scope("train"):
             self.grads_and_vars = optimizer.compute_gradients(self.loss)
             self.train_op = optimizer.apply_gradients(self.grads_and_vars)
             # The two lines above are equivalent to:
             # self.train_op = optimizer.minimize(self.loss)
-        with tf.name_scope("grad_norm"):
+        with tf.compat.v1.name_scope("grad_norm"):
             self.grads, _ = list(zip(*self.grads_and_vars))
-            self.norms = tf.global_norm(self.grads)
+            self.norms = tf.linalg.global_norm(self.grads)
 
         if debug >= 1:
             total_parameters = 0
             print("")
-            for variable in tf.trainable_variables():
+            for variable in tf.compat.v1.trainable_variables():
                 shape = variable.get_shape()
-                n_parameters = np.product(shape)
+                n_parameters = np.prod(shape)
                 total_parameters += n_parameters
                 print("Variable:    ", variable.name)
                 print("  Shape:     ", shape)
@@ -407,26 +404,26 @@ class ExpressionDecoder(object):
             print("Total parameters:", total_parameters)
 
         # Create summaries
-        with tf.name_scope("summary"):
+        with tf.compat.v1.name_scope("summary"):
             if self.summary:
                 if not pqt or (pqt and pqt_use_pg):
-                    tf.summary.scalar("pg_loss", pg_loss)
+                    tf.compat.v1.summary.scalar("pg_loss", pg_loss)
 
                 if pqt:
-                    tf.summary.scalar("pqt_loss", pqt_loss)
-                tf.summary.scalar("entropy_loss", entropy_loss)
-                tf.summary.scalar("total_loss", self.loss)
-                tf.summary.scalar("reward", tf.reduce_mean(r))
-                tf.summary.scalar("baseline", self.baseline)
-                tf.summary.histogram("reward", r)
-                tf.summary.histogram("length", self.sampled_batch_ph.lengths)
+                    tf.compat.v1.summary.scalar("pqt_loss", pqt_loss)
+                tf.compat.v1.summary.scalar("entropy_loss", entropy_loss)
+                tf.compat.v1.summary.scalar("total_loss", self.loss)
+                tf.compat.v1.summary.scalar("reward", tf.reduce_mean(r))
+                tf.compat.v1.summary.scalar("baseline", self.baseline)
+                tf.compat.v1.summary.histogram("reward", r)
+                tf.compat.v1.summary.histogram("length", self.sampled_batch_ph.lengths)
                 for g, v in self.grads_and_vars:
-                    tf.summary.histogram(v.name, v)
-                    tf.summary.scalar(v.name + '_norm', tf.norm(v))
-                    tf.summary.histogram(v.name + '_grad', g)
-                    tf.summary.scalar(v.name + '_grad_norm', tf.norm(g))
-                tf.summary.scalar('gradient norm', self.norms)
-                self.summaries = tf.summary.merge_all()
+                    tf.compat.v1.summary.histogram(v.name, v)
+                    tf.compat.v1.summary.scalar(v.name + '_norm', tf.norm(v))
+                    tf.compat.v1.summary.histogram(v.name + '_grad', g)
+                    tf.compat.v1.summary.scalar(v.name + '_grad_norm', tf.norm(g))
+                tf.compat.v1.summary.scalar('gradient norm', self.norms)
+                self.summaries = tf.compat.v1.summary.merge_all()
             else:
                 self.summaries = tf.no_op()
 
@@ -472,10 +469,10 @@ class ExpressionDecoder(object):
 #
 def make_optimizer(name, learning_rate):
     if name == "adam":
-        return tf.train.AdamOptimizer(learning_rate=learning_rate)
+        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
     elif name == "rmsprop":
-        return tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
+        return tf.compat.v1.train.RMSPropOptimizer(learning_rate=learning_rate, decay=0.99)
     elif name == "sgd":
-        return tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+        return tf.compat.v1.train.GradientDescentOptimizer(learning_rate=learning_rate)
     else:
         raise ValueError("Did not recognize optimizer '{}'".format(name))

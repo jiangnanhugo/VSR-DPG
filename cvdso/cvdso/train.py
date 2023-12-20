@@ -18,7 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 # Set TensorFlow seed
-tf.set_random_seed(0)
+tf.compat.v1.set_random_seed(0)
 
 
 # Work for multiprocessing pool: compute reward
@@ -176,10 +176,10 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     # assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
     # Initialize compute graph
-    sess.run(tf.global_variables_initializer())
+    sess.run(tf.compat.v1.global_variables_initializer())
 
     if debug:
-        tvars = tf.trainable_variables()
+        tvars = tf.compat.v1.trainable_variables()
 
         def print_var_means():
             tvars_vals = sess.run(tvars)

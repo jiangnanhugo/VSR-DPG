@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from datetime import datetime
 import pandas as pd
-from cvdso.program import Program, from_tokens
+from cvdso.program import Program
 from cvdso.utils import is_pareto_efficient, empirical_entropy
 from itertools import compress
 from io import StringIO
@@ -13,10 +13,10 @@ from collections import defaultdict
 
 #These functions are defined globally so they are pickleable and can be used by Pool.map
 def hof_work(p):
-    return [p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.r, p.on_policy_count, p.off_policy_count, repr(p.traversal), repr(p), p.evaluate]
 
 def pf_work(p):
-    return [p.complexity, p.r, p.on_policy_count, p.off_policy_count, repr(p.sympy_expr), repr(p), p.evaluate]
+    return [p.complexity, p.r, p.on_policy_count, p.off_policy_count, repr(p.traversal), repr(p), p.evaluate]
 
 
 class StatsLogger(object):
@@ -166,7 +166,7 @@ class StatsLogger(object):
             else:
                 timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
                 summary_dir = os.path.join("summary", timestamp)
-            self.summary_writer = tf.summary.FileWriter(summary_dir, self.sess.graph)
+            self.summary_writer = tf.compat.v1.summary.FileWriter(summary_dir, self.sess.graph)
         else:
             self.summary_writer = None
 

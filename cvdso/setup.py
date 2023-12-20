@@ -1,8 +1,4 @@
 from distutils.core import setup
-import os
-from setuptools import dist
-
-dist.Distribution().fetch_build_eggs(['Cython', 'numpy'])
 
 import numpy
 from Cython.Build import cythonize
@@ -11,7 +7,7 @@ required = [
     "pytest",
     "cython",
     "numpy",
-    "tensorflow==1.15.4",
+    "tensorflow",
     "numba",
     "sympy",
     "pandas",
@@ -30,11 +26,10 @@ required = [
 
 setup(name='cvdso',
       version='1.0',
-      description='Deep symbolic optimization with control variable expeirment.',
+      description='Deep symbolic optimization with control variable experiment.',
       author='NA',
       packages=['cvdso'],
-      setup_requires=["numpy", "Cython"],
-      ext_modules=cythonize([os.path.join('cvdso', 'cyfunc.pyx')]),
+      setup_requires=["numpy"],
       include_dirs=[numpy.get_include()],
       install_requires=required,
       )

@@ -1,7 +1,6 @@
 """Model architecture of default (saved) LanguageModel"""
 
 import tensorflow as tf
-from tensorflow.contrib import rnn
 
 class LanguageModel(object):
     def __init__(self, vocabulary_size, embedding_size, num_layers, num_hidden, mode='train'):
@@ -31,20 +30,20 @@ class LanguageModel(object):
 
         with tf.compat.v1.variable_scope("rnn"):
             def make_cell():
-                cell = rnn.BasicRNNCell(self.num_hidden)
-                cell = rnn.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
+                cell = tf.compat.v1.nn.rnn_cell.BasicRNNCell(self.num_hidden)
+                cell = tf.compat.v1.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
                 return cell
 
-            cell = rnn.MultiRNNCell([make_cell() for _ in range(self.num_layers)])
+            cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell([make_cell() for _ in range(self.num_layers)])
 
             self.initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
 
             # rnn_outputs: [batch_size, max_len, num_hidden(cell output)]
             rnn_outputs, self.last_state = tf.nn.dynamic_rnn(
-                cell=cell, 
+                cell=cell,
                 initial_state=self.initial_state,
                 inputs=lm_input_emb,
-                sequence_length=self.seq_len, 
+                sequence_length=self.seq_len,
                 dtype=tf.float32)
 
         # with tf.name_scope("output"):
