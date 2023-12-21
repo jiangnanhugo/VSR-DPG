@@ -4,12 +4,6 @@ from functools import partial
 
 import numpy as np
 from scipy.optimize import minimize
-#
-#
-# def make_const_optimizer(**kwargs):
-#     """Returns a ConstOptimizer given a name and keyword arguments"""
-#     return ScipyMinimize(**kwargs)
-
 
 class ScipyMinimize(object):
     """SciPy's non-linear optimizer"""

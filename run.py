@@ -73,6 +73,8 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     nvar = data_query_oracle.get_nvars()
     operators_set = data_query_oracle.get_operators_set()
 
+    production_rules = get_production_rules(0, operators_set)
+
     # Overwrite config seed, if specified
     seed = int(time.perf_counter() * 10000) % 1000007
     random.seed(seed)

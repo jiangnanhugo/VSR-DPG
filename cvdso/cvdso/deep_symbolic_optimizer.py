@@ -14,6 +14,7 @@ from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
+
 tf.compat.v1.disable_eager_execution()
 import commentjson as json
 
@@ -50,11 +51,9 @@ class CVDeepSymbolicOptimizer(object):
         self.data_query_oracle = data_query_oracle
 
         self.config_task['batchsize'] = self.config_training['batch_size']
-        self.config_task['dataX'] = self.dataX
+
         nvar = data_query_oracle.get_nvars()
-        allowed_input_tokens = np.ones(nvar, dtype=np.int32)
-        self.config_task['allowed_input'] = allowed_input_tokens
-        self.config_task['data_query_oracle'] = self.data_query_oracle
+        self.allowed_input_tokens = np.ones(nvar, dtype=np.int32)
 
         self.task_name = "_".join(['regression', self.config_filename.split("/")[-1],
                                    self.data_query_oracle._get_eq_name().split('/')[-1],
@@ -76,10 +75,13 @@ class CVDeepSymbolicOptimizer(object):
         self.save_config()
 
         # Prepare training parameters
-        self.prior = self.make_prior()
-        self.state_manager = self.make_state_manager()
-        self.expression_decoder = self.make_expression_decoder()
-        self.gp_controller = self.make_gp_controller()
+        self.prior = make_prior(Program.library, self.config_prior)
+        self.state_manager = manager_make_state_manager(self.config_state_manager)
+        self.expression_decoder = ExpressionDecoder(self.sess,
+                                                    self.prior,
+                                                    self.state_manager,
+                                                    **self.config_expression_decoder)
+        self.gp_controller = None
 
     def train(self):
         # Train the model
@@ -119,9 +121,6 @@ class CVDeepSymbolicOptimizer(object):
                     del self.config_experiment["starting_seed"]
                 with open(path, 'w') as f:
                     cp_config = copy.copy(self.config)
-                    cp_config['task']['dataX'] = 'dataX'
-                    cp_config['task']['data_query_oracle'] = 'data_query_oracle'
-                    cp_config['task']['allowed_input'] = 'allowed_input'
                     json.dump(cp_config, f, indent=4)
             self.config_experiment["seed"] = backup_seed
 
@@ -149,23 +148,6 @@ class CVDeepSymbolicOptimizer(object):
         np.random.seed(shifted_seed)
         random.seed(shifted_seed)
 
-    def make_prior(self):
-        prior = make_prior(Program.library, self.config_prior)
-        return prior
-
-    def make_state_manager(self):
-        return manager_make_state_manager(self.config_state_manager)
-
-    def make_expression_decoder(self):
-        decoder = ExpressionDecoder(self.sess,
-                                    self.prior,
-                                    self.state_manager,
-                                    **self.config_expression_decoder)
-        return decoder
-
-    def make_gp_controller(self):
-        return None
-
     def make_pool_and_set_task(self):
         # Create the pool and set the Task for each worker
 
@@ -190,7 +172,7 @@ class CVDeepSymbolicOptimizer(object):
                             initargs=(self.config_task,))
 
         # Set the Task for the parent process
-        set_task(self.config_task)
+        set_task(self.allowed_input_tokens, self.dataX, self.data_query_oracle, self.config_task)
 
         return pool
 
@@ -210,7 +192,7 @@ class CVDeepSymbolicOptimizer(object):
 
         # Generate save path
 
-        save_path = self.config_experiment["logdir"]+"_log/"
+        save_path = self.config_experiment["logdir"] + "_log/"
         self.config_experiment["task_name"] = self.task_name
         self.config_experiment["save_path"] = save_path
         os.makedirs(save_path, exist_ok=True)
@@ -220,15 +202,3 @@ class CVDeepSymbolicOptimizer(object):
                                    "cvdso_{}_{}.csv".format(self.task_name, seed))
 
         return output_file
-
-    def save(self, save_path):
-
-        saver = tf.compat.v1.train.Saver()
-        saver.save(self.sess, save_path)
-
-    def load(self, load_path):
-
-        if self.sess is None:
-            self.setup()
-        saver = tf.compat.v1.train.Saver()
-        saver.restore(self.sess, load_path)

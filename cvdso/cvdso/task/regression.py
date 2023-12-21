@@ -57,7 +57,7 @@ class Task(object):
         return initial_obs
 
 
-def set_task(config_task):
+def set_task(allowed_input, dataX, data_query_oracle, config_task):
     """Helper function to make set the Program class Task and execute function
     from task config."""
 
@@ -66,7 +66,7 @@ def set_task(config_task):
 
     Program.set_execute(protected)
     print(config_task)
-    task = RegressionTask(**config_task)
+    task = RegressionTask(allowed_input, dataX, data_query_oracle, **config_task)
 
     Program.set_task(task)
 

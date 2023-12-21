@@ -16,7 +16,7 @@ from scipy.optimize import basinhopping, shgo, dual_annealing
 from cvdso.grammar_utils import pretty_print_expr
 
 
-class CFGProgram(object):
+class grammarProgram(object):
     # Static variables
     expr_obj_thres = 1e-6  # expression objective threshold
     expr_consts_thres = 1e-3
@@ -65,7 +65,7 @@ class CFGProgram(object):
         """
         eq = simplify_template(eq)
         if 'A' in eq or 'B' in eq:  # not a valid equation
-            return -np.inf, eq, 0, np.inf
+            return -np.inf, eq, 0, 0
         # count number of constants in equation
         num_changing_consts = eq.count('C')
         t_optimized_constants, t_optimized_obj = 0, np.inf
@@ -95,8 +95,7 @@ class CFGProgram(object):
             try:
                 # optimize the constants in the expression
                 if self.optimizer == 'Nelder-Mead':
-                    opt_result = minimize(f, x0, method='Nelder-Mead',
-                                          options={'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': max_opt_iter})
+                    opt_result = minimize(f, x0, method='Nelder-Mead', options={'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': max_opt_iter})
 
                 elif self.optimizer == 'BFGS':
                     opt_result = minimize(f, x0, method='BFGS', options={'maxiter': max_opt_iter})
@@ -153,14 +152,13 @@ class CFGProgram(object):
 
                 print('\t reward',
                       eta ** tree_size * float(-np.log10(1e-60 - self.evalaute_loss(y_pred, y_true, var_ytrue))),
-                      '\t loss:',
-                      -self.evalaute_loss(y_pred, y_true, var_ytrue),
+                      '\t loss:', -self.evalaute_loss(y_pred, y_true, var_ytrue),
                       'simp:', eq)
             except Exception as e:
                 print(e)
                 return -np.inf, eq, 0, np.inf
 
-        r = eta ** tree_size * float(-np.log10(1e-60 + np.mean((y_pred - y_true) ** 2)))
+        r = eta ** tree_size * float(-np.log10(1e-60 - self.evalaute_loss(y_pred, y_true, var_ytrue)))
 
         return r, eq, t_optimized_constants, t_optimized_obj
 
@@ -193,6 +191,18 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
 
     return y_hat
 
+#
+# def execute_eval(expr_str: str, data_X: np.ndarray, input_var_Xs, simulated_steps: int, dt: float):
+#     """
+#     evaluate the output of expression with the given input.
+#     consts: list of constants.
+#     """
+#     try:
+#         y_hat = eval(expr_str)
+#     except TypeError as e:
+#         print(e)
+#
+#     return y_hat
 
 
 def simplify_template(eq):
@@ -207,3 +217,9 @@ def simplify_template(eq):
         eq = eq.replace('C*C', 'C')
         eq = eq.replace('(C/C)', 'C')
     return eq
+
+
+if __name__ == '__main__':
+    expr_temp = 'sqrt(sqrt(C))*(sqrt(X0)+C)'
+
+    simplify_template(expr_temp)

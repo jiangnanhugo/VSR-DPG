@@ -136,10 +136,6 @@ class Program(object):
         A list of indices of constants placeholders or floating-point constants
         along the traversal.
 
-    sympy_expr : str
-        The (lazily calculated) SymPy expression corresponding to the program.
-        Used for pretty printing _only_.
-
     complexity : float
         The (lazily calcualted) complexity of the program.
 

@@ -30,7 +30,7 @@ def work(p):
 
 def learn(sess, expression_decoder, pool, gp_controller, output_file,
           n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
-          const_optimizer="scipy", const_params=None, alpha=0.5,
+          const_params=None, alpha=0.5,
           epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
           save_all_epoch=False, baseline="R_e",
           b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
