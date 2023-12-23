@@ -6,7 +6,10 @@ import warnings
 import numpy as np
 
 from cvdso.functions import PlaceholderConstant
-from cvdso.const import ScipyMinimize
+from functools import partial
+
+import numpy as np
+from scipy.optimize import minimize
 from cvdso.utils import cached_property
 import cvdso.utils as U
 
@@ -64,9 +67,6 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
         defines an expression's pre-order traversal. "Dangling" programs are
         completed with repeated "x1" until the expression completes.
 
-    skip_cache : bool
-        Whether to bypass the cache when creating the program (used for
-        previously learned symbolic actions in DSP).
         
     finish_tokens: bool
         Do we need to finish this token. There are instances where we have
@@ -89,19 +89,16 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
     # For stochastic Tasks, there is no cache; always generate a new Program.
     # For deterministic Programs, if the Program is in the cache, return it;
     # otherwise, create a new one and add it to the cache.
-    if skip_cache:
+    key = tokens.tostring()
+    try:
+        p = Program.cache[key]
+        if on_policy:
+            p.on_policy_count += 1
+        else:
+            p.off_policy_count += 1
+    except KeyError:
         p = Program(tokens, on_policy=on_policy)
-    else:
-        key = tokens.tostring()
-        try:
-            p = Program.cache[key]
-            if on_policy:
-                p.on_policy_count += 1
-            else:
-                p.off_policy_count += 1
-        except KeyError:
-            p = Program(tokens, on_policy=on_policy)
-            Program.cache[key] = p
+        Program.cache[key] = p
 
     return p
 
@@ -169,6 +166,7 @@ class Program(object):
         # Can be empty if we are unpickling 
         if tokens is not None:
             self._init(tokens, on_policy)
+        Program.const_optimizer = ScipyMinimize()
 
     def _init(self, tokens, on_policy=True):
 
@@ -273,10 +271,10 @@ class Program(object):
             self.invalid = False
 
             return obj
-
-        self.task.rand_draw_data_with_X_fixed()
+        # comment out dec 23 00:18
+        # self.task.rand_draw_data_with_X_fixed()
         # Do the optimization
-        x0 = np.ones(len(self.const_pos))  # Initial guess
+        x0 = np.random.rand(len(self.const_pos))*10  # Initial guess
         optimized_constants = Program.const_optimizer(f, x0)
 
         # Set the optimized constants
@@ -309,10 +307,6 @@ class Program(object):
         Program.task = task
         Program.library = task.library
 
-    @classmethod
-    def set_const_optimizer(cls, **kwargs):
-        """Sets the class' constant optimizer"""
-        Program.const_optimizer = ScipyMinimize(**kwargs)
 
     @classmethod
     def set_complexity(cls, name):
@@ -403,8 +397,8 @@ class Program(object):
         """
 
         exprs = []
-        for i in range(len(self.traversals)):
-            tree = self.traversals[i].copy()
+        for i in range(len(self.traversal)):
+            tree = self.traversal[i].copy()
             exprs.append(tree)
         return exprs
 
@@ -426,3 +420,39 @@ class Program(object):
     def __repr__(self):
         """Prints the program's traversal"""
         return ','.join([repr(t) for t in self.traversal])
+
+
+
+
+class ScipyMinimize(object):
+    """SciPy's non-linear optimizer"""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __call__(self, f, x0):
+        """
+        Optimizes an objective function from an initial guess.
+
+               The objective function is the negative of the base reward (reward
+               without penalty) used for training. Optimization excludes any penalties
+               because they are constant w.r.t. to the constants being optimized.
+
+               Parameters
+               ----------
+               f : function mapping np.ndarray to float
+                   Objective function (negative base reward).
+
+               x0 : np.ndarray
+                   Initial guess for constant placeholders.
+
+               Returns
+               -------
+               x : np.ndarray
+                   Vector of optimized constants.
+        """
+        with np.errstate(divide='ignore'):
+            opt_result = partial(minimize, **self.kwargs)(f, x0)
+
+        x = opt_result['x']
+        return x

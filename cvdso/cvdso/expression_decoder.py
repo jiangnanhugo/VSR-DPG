@@ -8,7 +8,7 @@ from cvdso.memory import Batch
 from cvdso.prior import LengthConstraint
 
 
-class LinearWrapper():
+class LinearWrapper:
     """
     RNNCell wrapper that adds a linear layer to the output.
 
@@ -189,7 +189,7 @@ class ExpressionDecoder(object):
                     return tf.compat.v1.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
                 if name == 'gru':
                     return tf.compat.v1.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer,
-                                                  bias_initializer=initializer)
+                                                            bias_initializer=initializer)
                 raise ValueError("Did not recognize cell type '{}'".format(name))
 
             # Create recurrent cell
@@ -253,8 +253,8 @@ class ExpressionDecoder(object):
 
                     # Compute obs and prior
                     next_obs, next_prior = tf.compat.v1.py_func(func=task.get_next_obs,
-                                                      inp=[actions, obs],
-                                                      Tout=[tf.float32, tf.float32])
+                                                                inp=[actions, obs],
+                                                                Tout=[tf.float32, tf.float32])
                     next_prior.set_shape([None, decoder_output_vocab_size])
                     next_obs.set_shape([None, task.OBS_DIM])
                     next_obs = state_manager.process_state(next_obs)
@@ -264,11 +264,6 @@ class ExpressionDecoder(object):
                     finished = next_finished = tf.logical_or(
                         finished,
                         time >= max_length)
-                    # When implementing variable length:
-                    # finished = next_finished = tf.logical_or(tf.logical_or(
-                    #     finished, # Already finished
-                    #     next_dangling == 0), # Currently, this will be 0 not just the first time, but also at max_length
-                    #     time >= max_length)
                     next_lengths = tf.compat.v1.where(
                         finished,  # Ever finished
                         lengths,
@@ -315,9 +310,9 @@ class ExpressionDecoder(object):
         def make_neglogp_and_entropy(B):
             with tf.compat.v1.variable_scope('policy', reuse=True):
                 logits, _ = tf.compat.v1.nn.dynamic_rnn(cell=cell,
-                                              inputs=state_manager.get_tensor_input(B.obs),
-                                              sequence_length=B.lengths,  # Backpropagates only through sequence length
-                                              dtype=tf.float32)
+                                                        inputs=state_manager.get_tensor_input(B.obs),
+                                                        sequence_length=B.lengths,  # Backpropagates only through sequence length
+                                                        dtype=tf.float32)
             logits += B.priors
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)

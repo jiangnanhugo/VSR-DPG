@@ -43,8 +43,6 @@
       "complexity" : "token",
 
       // The constant optimizer used to optimized each "const" token.
-      "const_optimizer" : "scipy",
-      "const_params" : {},
       "verbose" : true,
 
       // Debug level

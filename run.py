@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import datetime
 import random
 import click
-from cvdso.production_rules import get_production_rules
+from cvdso.grammar.production_rules import get_production_rules
 from cvdso.deep_symbolic_optimizer import CVDeepSymbolicOptimizer
 from cvdso.logeval import LogEval
 from cvdso.utils import load_config
@@ -18,13 +18,13 @@ from scibench.symbolic_data_generator import *
 from scibench.symbolic_equation_evaluator_public import Equation_evaluator
 
 
-def train_cvdso(config, dataX, data_query_oracle, config_filename):
+def train_cvdso(config, function_set, dataX, data_query_oracle, config_filename):
     """Trains DSO and returns dict of reward, expression, and traversal"""
 
     print("\n== TRAINING SEED {} START ============".format(config["experiment"]["seed"]))
 
     # Train the model
-    model = CVDeepSymbolicOptimizer(deepcopy(config), dataX, data_query_oracle, config_filename)
+    model = CVDeepSymbolicOptimizer(deepcopy(config), function_set, dataX, data_query_oracle, config_filename)
     start = time.time()
     # Setup the model
     model.setup()
@@ -68,9 +68,11 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     # Load the experiment config
     config_template = config_template if config_template != "" else None
     config = load_config(config_template)
-    data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale)
+    data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name='inv_nrmse')
     dataXgen = DataX(data_query_oracle.get_vars_range_and_types())
     nvar = data_query_oracle.get_nvars()
+    function_set= data_query_oracle.operators_set
+
     operators_set = data_query_oracle.get_operators_set()
 
     production_rules = get_production_rules(0, operators_set)
@@ -118,13 +120,13 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
         for i, (result, summary_path) in enumerate(
-                pool.imap_unordered(train_cvdso, configs, dataXgen, data_query_oracle, config_template)):
+                pool.imap_unordered(train_cvdso, configs, function_set, dataXgen, data_query_oracle, config_template)):
             if not safe_update_summary(summary_path, result):
                 print("Warning: Could not update summary stats at {}".format(summary_path))
             print("INFO: Completed run {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))
     else:
         for i, config in enumerate(configs):
-            result, summary_path = train_cvdso(config, dataXgen, data_query_oracle, config_template)
+            result, summary_path = train_cvdso(config, function_set, dataXgen, data_query_oracle, config_template)
             if not safe_update_summary(summary_path, result):
                 print("Warning: Could not update summary stats at {}".format(summary_path))
             print("INFO: Completed run {} of {} in {:.0f} s".format(i + 1, runs, result["t"]))

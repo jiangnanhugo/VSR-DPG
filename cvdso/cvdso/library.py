@@ -133,6 +133,9 @@ class Library(object):
             [i for i, t in enumerate(self.tokens) if t.input_var is not None],
             dtype=np.int32)
 
+        self.allowed_input_tokens = np.ones(self.input_tokens.size, dtype=np.int32)
+        self.allowed_tokens =np.ones(self.L, dtype=np.int32)
+
         def get_tokens_of_arity(arity):
             _tokens = [i for i in range(self.L) if self.arities[i] == arity]
             return np.array(_tokens, dtype=np.int32)
@@ -183,6 +186,31 @@ class Library(object):
         self.EMPTY_ACTION = self.n_action_inputs - 1
         self.EMPTY_PARENT = self.n_parent_inputs - 1
         self.EMPTY_SIBLING = self.n_sibling_inputs - 1
+    
+    def print_library(self):
+        print('============== LIBRARY ==============')
+        print('{0: >8} {1: >10} {2: >8} {3: >8}'.format('ID', 'NAME', 'ARITY', 'ALLOWED'))
+        for i in range(self.L):
+            print('{0: >8} {1: >10} {2: >8} {3: >8}'.format(i, self.names[i],\
+                                                            self.arities[i],
+                                                            self.allowed_tokens[i]))
+        print('allowed_input_tokens=', self.allowed_input_tokens)
+        print('========== END OF LIBRARY ===========')
+    
+    def allowed_tokens_pos(self):
+        return [i for i, t in enumerate(self.allowed_tokens) if t == 1]
+
+    def allowed_non_terminal_tokens_pos(self):
+        return [i for i, t in enumerate(self.allowed_tokens) if t == 1 and self.arities[i] > 0]
+
+    def set_allowed_input_tokens(self, allowed_input_tokens):
+        self.allowed_input_tokens = np.copy(allowed_input_tokens)
+        for i, flag in enumerate(self.allowed_input_tokens):
+            self.allowed_tokens[self.input_tokens[i]] = flag
+
+    def set_allowed_input_token(self, i, flag):
+        self.allowed_input_tokens[i] = flag
+        self.allowed_tokens[self.input_tokens[i]] = flag
 
     def __getitem__(self, val):
         """Shortcut to get Token by name or index."""

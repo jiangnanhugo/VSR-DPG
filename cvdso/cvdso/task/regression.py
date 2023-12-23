@@ -57,7 +57,7 @@ class Task(object):
         return initial_obs
 
 
-def set_task(allowed_input, dataX, data_query_oracle, config_task):
+def set_task(function_set, allowed_input, dataX, data_query_oracle, config_task):
     """Helper function to make set the Program class Task and execute function
     from task config."""
 
@@ -66,7 +66,7 @@ def set_task(allowed_input, dataX, data_query_oracle, config_task):
 
     Program.set_execute(protected)
     print(config_task)
-    task = RegressionTask(allowed_input, dataX, data_query_oracle, **config_task)
+    task = RegressionTask(function_set,allowed_input, dataX, data_query_oracle, **config_task)
 
     Program.set_task(task)
 
@@ -79,8 +79,8 @@ class RegressionTask(Task):
 
     task_type = "regression"
 
-    def __init__(self,
-                 batchsize, allowed_input, dataX, data_query_oracle,
+    def __init__(self, function_set,
+                 allowed_input, dataX, data_query_oracle, batchsize,
                  metric="inv_nrmse",
                  metric_params=(1.0,), threshold=1e-12,
                  normalize_variance=False, protected=False):
@@ -115,7 +115,7 @@ class RegressionTask(Task):
         """
         self.X_test = self.y_test = self.y_test_noiseless = None
 
-        self.batchsize = batchsize
+        self.batchsize = 1500#batchsize
         self.allowed_input = allowed_input
         self.n_input = allowed_input.size
         self.dataX = dataX
@@ -139,9 +139,11 @@ class RegressionTask(Task):
 
         # Set the Library
         tokens = create_tokens(n_input_var=self.data_query_oracle.get_nvars(),
-                               function_set=self.data_query_oracle.operators_set,
+                               function_set=function_set,   
                                protected=protected)
         self.library = Library(tokens)
+        self.library.print_library()
+        self.rand_draw_data_with_X_fixed()
 
     def set_allowed_inputs(self, allowed_inputs):
         self.allowed_input = np.copy(allowed_inputs)
@@ -161,10 +163,12 @@ class RegressionTask(Task):
         self.X = self.dataX.randn(sample_size=self.batchsize).T
         if len(self.fixed_column):
             self.X[:, self.fixed_column] = self.X_fixed[self.fixed_column]
+        # print(self.fixed_column)
 
     def reward_function(self, p):
         # Compute estimated values
         y_hat = p.execute(self.X)
+        # print(self.X.shape, y_hat.shape)
 
         # For invalid expressions, return invalid_reward
         if p.invalid:

@@ -30,8 +30,7 @@ def work(p):
 
 def learn(sess, expression_decoder, pool, gp_controller, output_file,
           n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
-          const_params=None, alpha=0.5,
-          epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
+          alpha=0.5, epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
           save_all_epoch=False, baseline="R_e",
           b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
           save_pareto_front=True, debug=0, use_memory=False, memory_capacity=1e3,
@@ -57,27 +56,15 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     gp_controller : dso.gp.gp_controller.GPController or None
         GP controller object used to generate Programs.
 
-    output_file : str or None
-        Path to save results each step.
-
-    n_epochs : int or None, optional
-        Number of epochs to train when n_samples is None.
+    output_file : str or None. Path to save results each step.
+    n_epochs : int or None, optional. Number of epochs to train when n_samples is None.
 
     n_samples : int or None, optional
         Total number of expressions to sample when n_epochs is None. In this
         case, n_epochs = int(n_samples / batch_size).
-
-    batch_size : int, optional
-        Number of sampled expressions per epoch.
-
-    complexity : str, optional
-        Complexity function name, used computing Pareto front.
-
-    const_optimizer : str or None, optional
-        Name of constant optimizer.
-
-    const_params : dict, optional
-        Dict of constant optimizer kwargs.
+    batch_size : int, optional. Number of sampled expressions per epoch.
+    complexity : str, optional. Complexity function name, used computing Pareto front.
+    const_params : dict, optional. Dict of constant optimizer kwargs.
 
     alpha : float, optional
         Coefficient of exponentially-weighted moving average of baseline.
@@ -90,14 +77,9 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
         Number of cores to spread out over the batch for constant optimization
         and evaluating reward. If -1, uses multiprocessing.cpu_count().
 
-    verbose : bool, optional
-        Whether to print progress.
-
-    save_summary : bool, optional
-        Whether to write TensorFlow summaries.
-
-    save_all_epoch : bool, optional
-        Whether to save all rewards for each iteration.
+    verbose : bool, optional. Whether to print progress.
+    save_summary : bool, optional. Whether to write TensorFlow summaries.
+    save_all_epoch : bool, optional. Whether to save all rewards for each iteration.
 
     baseline : str, optional
         Type of baseline to use: grad J = (R - b) * grad-log-prob(expression).
@@ -113,29 +95,24 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
         Whether EWMA part of the baseline starts at the average of the first
         iteration. If False, the EWMA starts at 0.0.
 
-    early_stopping : bool, optional
-        Whether to stop early if stopping criteria is reached.
+    early_stopping : bool, optional. Whether to stop early if stopping criteria is reached.
 
-    hof : int or None, optional
-        If not None, number of top Programs to evaluate after training.
+    hof : int or None, optional. If not None, number of top Programs to evaluate after training.
 
     eval_all : bool, optional
         If True, evaluate all Programs. While expensive, this is useful for
         noisy data when you can't be certain of success solely based on reward.
         If False, only the top Program is evaluated each iteration.
 
-    save_pareto_front : bool, optional
-        If True, compute and save the Pareto front at the end of training.
+    save_pareto_front : bool, optional. If True, compute and save the Pareto front at the end of training.
 
     debug : int, optional
         Debug level, also passed to Controller. 0: No debug. 1: Print initial
         parameter means. 2: Print parameter means each step.
 
-    use_memory : bool, optional
-        If True, use memory queue for reward quantile estimation.
+    use_memory : bool, optional. If True, use memory queue for reward quantile estimation.
 
-    memory_capacity : int
-        Capacity of memory queue.
+    memory_capacity : int. Capacity of memory queue.
 
     warm_start : int or None
         Number of samples to warm start the memory queue. If None, uses
@@ -148,25 +125,17 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     save_positional_entropy : bool, optional
         Whether to save evolution of positional entropy for each iteration.
 
-    save_top_samples_per_batch : float, optional
-        Whether to store X% top-performer samples in every batch.
+    save_top_samples_per_batch : float, optional. Whether to store X% top-performer samples in every batch.
 
-    save_cache : bool
-        Whether to save the str, count, and r of each Program in the cache.
+    save_cache : bool. Whether to save the str, count, and r of each Program in the cache.
 
     save_cache_r_min : float or None
         If not None, only keep Programs with r >= r_min when saving cache.
 
-    save_freq : int or None
-        Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
+    save_freq : int or None. Statistics are flushed to file every save_freq epochs (default == 1). If < 0, uses save_freq = inf
+    save_token_count : bool. Whether to save token counts each batch.
 
-    save_token_count : bool
-        Whether to save token counts each batch.
-
-    Returns
-    -------
-    result : dict
-        A dict describing the best-fit expression (determined by reward).
+    Return : dict. A dict describing the best-fit expression (determined by reward).
     """
 
     run_gp_meld = gp_controller is not None
@@ -226,7 +195,9 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     r_best = -np.inf
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
+    n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     nevals = 0  # Total number of sampled expressions (from RL or GP)
+    print("max epoches", n_epochs)
     positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
@@ -238,7 +209,7 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     start_time = time.time()
     if verbose:
         print("-- RUNNING EPOCHS START -------------")
-    print("max epoches", n_epochs)
+
     for epoch in range(n_epochs):
 
         # Set of str representations for all Programs ever seen

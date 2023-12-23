@@ -22,7 +22,7 @@ from cvdso.task.regression import set_task
 from cvdso.expression_decoder import ExpressionDecoder
 from cvdso.train import learn
 from cvdso.prior import make_prior
-from cvdso.program import Program
+from cvdso.program import Program, ScipyMinimize
 from cvdso.utils import load_config
 from cvdso.tf_state_manager import make_state_manager as manager_make_state_manager
 
@@ -43,7 +43,7 @@ class CVDeepSymbolicOptimizer(object):
     Methods: train. Builds and trains the model according to config.
     """
 
-    def __init__(self, config=None, dataX=None, data_query_oracle=None, config_filename=None):
+    def __init__(self, config=None, function_set=None, dataX=None, data_query_oracle=None, config_filename=None):
         self.config_filename = config_filename
         self.set_config(config)
         self.sess = None
@@ -51,7 +51,8 @@ class CVDeepSymbolicOptimizer(object):
         self.data_query_oracle = data_query_oracle
 
         self.config_task['batchsize'] = self.config_training['batch_size']
-
+        self.function_set = function_set
+        print(f"self.function_set ={self.function_set}")
         nvar = data_query_oracle.get_nvars()
         self.allowed_input_tokens = np.ones(nvar, dtype=np.int32)
 
@@ -153,13 +154,10 @@ class CVDeepSymbolicOptimizer(object):
 
         # Set complexity and const optimizer here so pool can access them
         # Set the complexity function
-        complexity = self.config_training["complexity"]
-        Program.set_complexity(complexity)
+        Program.set_complexity(self.config_training["complexity"])
 
         # Set the constant optimizer
-        const_params = self.config_training["const_params"]
-        const_params = const_params if const_params is not None else {}
-        Program.set_const_optimizer(**const_params)
+        Program.const_optimizer = ScipyMinimize
 
         pool = None
         n_cores_batch = self.config_training.get("n_cores_batch")
@@ -172,7 +170,7 @@ class CVDeepSymbolicOptimizer(object):
                             initargs=(self.config_task,))
 
         # Set the Task for the parent process
-        set_task(self.allowed_input_tokens, self.dataX, self.data_query_oracle, self.config_task)
+        set_task(self.function_set, self.allowed_input_tokens, self.dataX, self.data_query_oracle, self.config_task)
 
         return pool
 

@@ -230,12 +230,12 @@ def import_custom_source(import_source):
 ##### load configure files
 def get_base_config():
     # Load base config
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config_common.json"), encoding='utf-8') as f:
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'config', "config_common.json"), encoding='utf-8') as f:
         base_config = json.load(f)
 
     # Load task specific config
     task_config_file = "config_regression.json"
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), task_config_file), encoding='utf-8') as f:
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'config', task_config_file), encoding='utf-8') as f:
         task_config = json.load(f)
 
     return safe_merge_dicts(base_config, task_config)
