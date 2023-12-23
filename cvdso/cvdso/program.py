@@ -148,12 +148,6 @@ class Program(object):
     const_optimizer = None  # Function to optimize constants
     cache = {}
     n_objects = 1  # Number of executable objects per Program instance
-
-    # Cython-related static variables
-    have_cython = None  # Do we have cython installed
-    execute = None  # Link to execute. Either cython or python
-    cyfunc = None  # Link to cyfunc lib since we do an include inline
-
     def __init__(self, tokens=None, on_policy=True):
         """
         Builds the Program from a list of of integers corresponding to Tokens.
@@ -170,7 +164,7 @@ class Program(object):
         self.const_pos = [i for i, t in enumerate(self.traversal) if isinstance(t, PlaceholderConstant)]
         self.len_traversal = len(self.traversal)
 
-        if self.have_cython and self.len_traversal > 1:
+        if self.len_traversal > 1:
             self.is_input_var = array.array('i', [t.input_var is not None for t in self.traversal])
 
         self.invalid = False
@@ -228,15 +222,7 @@ class Program(object):
     def execute(self, X):
         """
         Execute program on input X.
-
-        Parameters
-        ==========
-
-        X : np.array
-            Input to execute the Program over.
-
-        Returns
-        =======
+        X : np.array. Input to execute the Program over.
 
         result : np.array or list of np.array
             In a single-object Program, returns just an array. In a multi-object Program, returns a list of arrays.

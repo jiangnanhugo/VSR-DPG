@@ -20,7 +20,7 @@ import commentjson as json
 
 from cvdso.task.regression import set_task
 from cvdso.expression_decoder import ExpressionDecoder
-from cvdso.train import learn
+from train import learn
 from cvdso.prior import make_prior
 from cvdso.program import Program, ScipyMinimize
 from cvdso.utils import load_config
@@ -122,7 +122,7 @@ class CVDeepSymbolicOptimizer(object):
 
         seed = round(time() * 1000) % int(1e9)
         self.config_experiment["seed"] = seed
-        shifted_seed = seed + zlib.adler32(self.task_name.encode("utf-8"))
+        shifted_seed = seed
 
         # Set the seeds using the shifted seed
         tf.compat.v1.random.set_random_seed(shifted_seed)

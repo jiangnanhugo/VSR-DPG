@@ -9,7 +9,7 @@ from datetime import datetime
 import random
 import click
 from cvdso.grammar.production_rules import get_production_rules
-from cvdso.deep_symbolic_optimizer import CVDeepSymbolicOptimizer
+from deep_symbolic_optimizer import CVDeepSymbolicOptimizer
 from cvdso.logeval import LogEval
 from cvdso.utils import load_config
 from cvdso.utils import safe_update_summary

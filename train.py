@@ -27,26 +27,11 @@ def work(p):
     r = p.r
     return p
 
-
-def learn(sess, expression_decoder, pool, output_file,
-          n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
-          alpha=0.5, epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
-          save_all_epoch=False, baseline="R_e",
-          b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
-          save_pareto_front=True, debug=0, use_memory=False, memory_capacity=1e3,
-          warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          save_top_samples_per_batch=0, save_cache=False,
-          save_cache_r_min=0.9, save_freq=None, save_token_count=False):
-    """
+"""
     Executes the main training loop.
 
-    Parameters
-    ----------
-    sess : tf.Session
-        TensorFlow Session object.
-
-    expression_decoder : dso.expression_decoder.ExpressionDecoder
-        ExpressionDecoder object used to generate Programs.
+    sess : tf.Session. TensorFlow Session object.
+    expression_decoder : dso.expression_decoder.ExpressionDecoder. ExpressionDecoder object used to generate Programs.
 
     pool : multiprocessing.Pool or None
         Pool to parallelize reward computation. For the control task, each
@@ -61,14 +46,8 @@ def learn(sess, expression_decoder, pool, output_file,
         case, n_epochs = int(n_samples / batch_size).
     batch_size : int, optional. Number of sampled expressions per epoch.
     complexity : str, optional. Complexity function name, used computing Pareto front.
-    const_params : dict, optional. Dict of constant optimizer kwargs.
-
-    alpha : float, optional
-        Coefficient of exponentially-weighted moving average of baseline.
-
-    epsilon : float or None, optional
-        Fraction of top expressions used for training. None (or
-        equivalently, 1.0) turns off risk-seeking.
+    alpha : float, optional.  Coefficient of exponentially-weighted moving average of baseline.
+    epsilon : float or None, optional.  Fraction of top expressions used for training. None (or equivalently, 1.0) turns off risk-seeking.
 
     n_cores_batch : int, optional
         Number of cores to spread out over the batch for constant optimization
@@ -134,6 +113,15 @@ def learn(sess, expression_decoder, pool, output_file,
 
     Return : dict. A dict describing the best-fit expression (determined by reward).
     """
+def learn(sess, expression_decoder, pool, output_file,
+          n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
+          alpha=0.5, epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
+          save_all_epoch=False, baseline="R_e",
+          b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
+          save_pareto_front=True, debug=0, use_memory=False, memory_capacity=1e3,
+          warm_start=None, memory_threshold=None, save_positional_entropy=False,
+          save_top_samples_per_batch=0, save_cache=False,
+          save_cache_r_min=0.9, save_freq=None, save_token_count=False):
 
     # Config assertions and warnings
     print(n_samples, n_epochs)
@@ -159,8 +147,7 @@ def learn(sess, expression_decoder, pool, output_file,
 
     # Create the memory queue
     if use_memory:
-        assert epsilon is not None and epsilon < 1.0, \
-            "Memory queue is only used with risk-seeking."
+        assert epsilon is not None and epsilon < 1.0,  "Memory queue is only used with risk-seeking."
         memory_queue = make_queue(controller=expression_decoder, priority=False,
                                   capacity=int(memory_capacity))
 
