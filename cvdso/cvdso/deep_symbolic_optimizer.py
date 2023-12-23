@@ -29,21 +29,12 @@ from cvdso.tf_state_manager import make_state_manager as manager_make_state_mana
 
 class CVDeepSymbolicOptimizer(object):
     """
-    control variable for Deep symbolic optimization model. Includes model hyperparameters and
+    Control variable for Deep symbolic optimization model. Includes model hyperparameters and
     training configuration.
-
-    Parameters
-    ----------
-    config : dict or str. Config dictionary or path to JSON.
-
-    Attributes
-    ----------
-    config : dict. Configuration parameters for training.
-
-    Methods: train. Builds and trains the model according to config.
     """
 
     def __init__(self, config=None, function_set=None, dataX=None, data_query_oracle=None, config_filename=None):
+        """config : dict or str. Config dictionary or path to JSON."""
         self.config_filename = config_filename
         self.set_config(config)
         self.sess = None
@@ -82,7 +73,7 @@ class CVDeepSymbolicOptimizer(object):
                                                     self.prior,
                                                     self.state_manager,
                                                     **self.config_expression_decoder)
-        self.gp_controller = None
+
 
     def train(self):
         # Train the model
@@ -90,7 +81,6 @@ class CVDeepSymbolicOptimizer(object):
         result_dict = learn(self.sess,
                             self.expression_decoder,
                             self.pool,
-                            self.gp_controller,
                             self.output_file,
                             **self.config_training)
         result.update(result_dict)
@@ -105,7 +95,6 @@ class CVDeepSymbolicOptimizer(object):
         self.config_training = self.config["training"]
         self.config_state_manager = self.config["state_manager"]
         self.config_expression_decoder = self.config["controller"]
-        self.config_gp_meld = self.config["gp_meld"]
         self.config_experiment = self.config["experiment"]
 
     def save_config(self):
@@ -128,20 +117,11 @@ class CVDeepSymbolicOptimizer(object):
     def set_seeds(self):
         """
         Set the tensorflow, numpy, and random module seeds based on the seed
-        specified in config. If there is no seed or it is None, a time-based
-        seed is used instead and is written to config.
+        specified in config.  a time-based seed is used.
         """
 
-        seed = self.config_experiment.get("seed")
-
-        # Default uses current time in milliseconds, modulo 1e9
-        if seed is None:
-            seed = round(time() * 1000) % int(1e9)
-            self.config_experiment["seed"] = seed
-
-        # Shift the seed based on task name
-        # This ensures a specified seed doesn't have similarities across different task names
-
+        seed = round(time() * 1000) % int(1e9)
+        self.config_experiment["seed"] = seed
         shifted_seed = seed + zlib.adler32(self.task_name.encode("utf-8"))
 
         # Set the seeds using the shifted seed

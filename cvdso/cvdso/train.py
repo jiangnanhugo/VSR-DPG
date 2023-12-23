@@ -28,7 +28,7 @@ def work(p):
     return p
 
 
-def learn(sess, expression_decoder, pool, gp_controller, output_file,
+def learn(sess, expression_decoder, pool, output_file,
           n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
           alpha=0.5, epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
           save_all_epoch=False, baseline="R_e",
@@ -52,9 +52,6 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
         Pool to parallelize reward computation. For the control task, each
         worker should have its own TensorFlow model. If None, a Pool will be
         generated if n_cores_batch > 1.
-
-    gp_controller : dso.gp.gp_controller.GPController or None
-        GP controller object used to generate Programs.
 
     output_file : str or None. Path to save results each step.
     n_epochs : int or None, optional. Number of epochs to train when n_samples is None.
@@ -138,8 +135,6 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     Return : dict. A dict describing the best-fit expression (determined by reward).
     """
 
-    run_gp_meld = gp_controller is not None
-
     # Config assertions and warnings
     print(n_samples, n_epochs)
     # assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
@@ -196,7 +191,7 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
-    nevals = 0  # Total number of sampled expressions (from RL or GP)
+    nevals = 0  # Total number of sampled expressions (from RL)
     print("max epoches", n_epochs)
     positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
 
@@ -338,31 +333,8 @@ def learn(sess, expression_decoder, pool, gp_controller, output_file,
             s = list(compress(s, keep))
             invalid = invalid[keep]
 
-            # Option: don't keep the GP programs for return to controller
-            if run_gp_meld and not gp_controller.return_gp_obs:
-                '''
-                    If we are not returning the GP components to the controller, we will remove them from
-                    r_train and p_train by augmenting 'keep'. We just chop off the GP elements which are indexed
-                    from batch_size to the end of the list.
-                '''
-                _r = r[keep]
-                _p = list(compress(programs, keep))
-                keep[batch_size:] = False
-                r_train = r[keep]
-                p_train = list(compress(programs, keep))
-
-                '''
-                    These contain all the programs and rewards regardless of whether they are returned to the controller.
-                    This way, they can still be stored in the hall of fame.
-                '''
-                r = _r
-                programs = _p
-            else:
-                '''
-                    Since we are returning the GP programs to the contorller, p and r are the same as p_train and r_train.
-                '''
-                r_train = r = r[keep]
-                p_train = programs = list(compress(programs, keep))
+            r_train = r = r[keep]
+            p_train = programs = list(compress(programs, keep))
 
             '''
                 get the action, observation, priors and on_policy status of all programs returned to the controller.

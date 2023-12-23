@@ -168,9 +168,6 @@ class RegressionTask(Task):
     def reward_function(self, p):
         # Compute estimated values
         y_hat = p.execute(self.X)
-        # print(self.X.shape, y_hat.shape)
-
-        # For invalid expressions, return invalid_reward
         if p.invalid:
             return self.invalid_reward
 
@@ -196,8 +193,7 @@ class RegressionTask(Task):
 
         else:
             # NMSE on test data (used to report final error)
-            nmse_test = self.data_query_oracle._evaluate_loss(self.X,
-                                                              y_hat)  # np.mean((self.y_test - y_hat) ** 2) / self.var_y_test
+            nmse_test = self.data_query_oracle._evaluate_loss(self.X, y_hat)
 
             # Success is defined by NMSE on noiseless test data below a threshold
             success = False

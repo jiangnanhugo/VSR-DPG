@@ -3,8 +3,6 @@
 import array
 import warnings
 
-import numpy as np
-
 from cvdso.functions import PlaceholderConstant
 from functools import partial
 
@@ -72,9 +70,7 @@ def from_tokens(tokens, skip_cache=False, on_policy=True, finish_tokens=True):
         Do we need to finish this token. There are instances where we have
         already done this. Most likely you will want this to be True. 
 
-    Returns
-    _______
-    program : Program
+    Returns. program : Program
         The Program corresponding to the tokens, either pulled from memoization
         or generated from scratch.
     """

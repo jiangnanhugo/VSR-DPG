@@ -9,6 +9,49 @@ import cvdso.utils as U
 GAMMA = 0.57721566490153286060651209008240243104215933593992
 
 
+def create_tokens(n_input_var, function_set, protected):
+    """
+    Helper function to create Tokens.
+    n_input_var : int. Number of input variable Tokens.
+    function_set : list.  Names of registered Tokens, or floats that will create new Tokens.
+    protected : bool. Whether to use protected versions of registered Tokens.
+    """
+
+    tokens = []
+
+    # Create input variable Tokens
+    for i in range(n_input_var):
+        token = Token(name="X{}".format(i + 1), arity=0, complexity=1,
+                      function=None, input_var=i)
+        tokens.append(token)
+
+    for op in function_set:
+
+        # Registered Token
+        if op in function_map:
+            # Overwrite available protected operators
+            if protected and not op.startswith("protected_"):
+                protected_op = "protected_{}".format(op)
+                if protected_op in function_map:
+                    op = protected_op
+
+            token = function_map[op]
+
+        # Hard-coded floating-point constant
+        elif U.is_float(op):
+            token = HardCodedConstant(op)
+
+        # Constant placeholder (to-be-optimized)
+        elif op == "const":
+            token = PlaceholderConstant()
+
+        else:
+            raise ValueError("Operation {} not recognized.".format(op))
+
+        tokens.append(token)
+
+    return tokens
+
 """Define custom unprotected operators"""
 def logabs(x1):
     """Closure of log for non-positive arguments."""
@@ -141,51 +184,3 @@ UNARY_TOKENS    = set([op.name for op in function_map.values() if op.arity == 1]
 BINARY_TOKENS   = set([op.name for op in function_map.values() if op.arity == 2])
 
 
-def create_tokens(n_input_var, function_set, protected):
-    """
-    Helper function to create Tokens.
-
-    Parameters
-    ----------
-    n_input_var : int. Number of input variable Tokens.
-
-    function_set : list.  Names of registered Tokens, or floats that will create new Tokens.
-
-    protected : bool
-        Whether to use protected versions of registered Tokens.
-    """
-
-    tokens = []
-
-    # Create input variable Tokens
-    for i in range(n_input_var):
-        token = Token(name="X{}".format(i + 1), arity=0, complexity=1,
-                      function=None, input_var=i)
-        tokens.append(token)
-
-    for op in function_set:
-
-        # Registered Token
-        if op in function_map:
-            # Overwrite available protected operators
-            if protected and not op.startswith("protected_"):
-                protected_op = "protected_{}".format(op)
-                if protected_op in function_map:
-                    op = protected_op
-
-            token = function_map[op]
-
-        # Hard-coded floating-point constant
-        elif U.is_float(op):
-            token = HardCodedConstant(op)
-
-        # Constant placeholder (to-be-optimized)
-        elif op == "const":
-            token = PlaceholderConstant()
-
-        else:
-            raise ValueError("Operation {} not recognized.".format(op))
-
-        tokens.append(token)
-
-    return tokens

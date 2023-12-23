@@ -62,8 +62,7 @@ class ExpressionDecoder(object):
         Debug level, also used in learn(). 0: No debug. 1: Print shapes and
         number of parameters for each variable.
 
-    cell : str
-        Recurrent cell to use. Supports 'lstm' and 'gru'.
+
 
     num_layers : int. Number of RNN layers.
 
@@ -97,10 +96,6 @@ class ExpressionDecoder(object):
         Size of batch to sample (with replacement) from priority queue.
 
     pqt_weight : float
-        Coefficient for PQT loss function.
-
-    pqt_use_pg : bool
-        Use policy gradient loss when using PQT?
 
     max_length : int or None
         Maximum sequence length. This will be overridden if a LengthConstraint
@@ -109,7 +104,7 @@ class ExpressionDecoder(object):
 
     def __init__(self, sess, prior, state_manager, debug=0, summary=False,
                  # RNN cell hyperparameters
-                 cell='lstm',
+                 cell='lstm',                                    #   cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
                  num_layers=1,
                  num_units=32,
                  initializer='zeros',
@@ -123,15 +118,14 @@ class ExpressionDecoder(object):
                  pqt=False,
                  pqt_k=10,
                  pqt_batch_size=1,
-                 pqt_weight=200.0,
-                 pqt_use_pg=False,
+                 pqt_weight=200.0,                               # Coefficient for PQT loss function.
+                 pqt_use_pg=False,                               # Use policy gradient loss when using PQT?
                  # Other hyperparameters
                  max_length=30):
 
         self.sess = sess
         self.prior = prior
         self.summary = summary
-        ###self.rng = np.random.RandomState(0) # Used for PPO minibatch sampling
         self.n_objects = Program.n_objects
 
         # Find max_length from the LengthConstraint prior, if it exists
@@ -175,7 +169,7 @@ class ExpressionDecoder(object):
         entropy_gamma_decay = np.array([entropy_gamma ** t for t in range(max_length)])
 
         # Build controller RNN
-        with tf.compat.v1.name_scope("controller"):
+        with tf.compat.v1.name_scope("expression_decoder"):
             def make_initializer(name):
                 if name == "zeros":
                     return tf.compat.v1.zeros_initializer()
