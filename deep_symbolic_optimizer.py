@@ -73,7 +73,6 @@ class CVDeepSymbolicOptimizer(object):
                                                     self.state_manager,
                                                     **self.config_expression_decoder)
 
-
     def train(self):
         # Train the model
         result = {"seed": self.config_experiment["seed"]}  # Seed listed first
