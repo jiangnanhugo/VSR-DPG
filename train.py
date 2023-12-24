@@ -16,9 +16,9 @@ from cvdso.train_stats import StatsLogger
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-# Set TensorFlow seed
-tf.compat.v1.set_random_seed(0)
+#
+# # Set TensorFlow seed
+# tf.compat.v1.set_random_seed(0)
 
 
 # Work for multiprocessing pool: compute reward
@@ -98,11 +98,9 @@ def work(p):
         If not None, run quantile variance/bias estimate experiments after
         memory weight exceeds memory_threshold.
 
-    save_positional_entropy : bool, optional
-        Whether to save evolution of positional entropy for each iteration.
+    save_positional_entropy : bool, optional.  Whether to save evolution of positional entropy for each iteration.
 
     save_top_samples_per_batch : float, optional. Whether to store X% top-performer samples in every batch.
-
     save_cache : bool. Whether to save the str, count, and r of each Program in the cache.
 
     save_cache_r_min : float or None

@@ -5,7 +5,6 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 import os
-import zlib
 from collections import defaultdict
 from multiprocessing import Pool, cpu_count
 import random

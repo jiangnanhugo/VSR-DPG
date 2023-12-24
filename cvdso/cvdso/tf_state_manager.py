@@ -84,23 +84,17 @@ class HierarchicalStateManager(StateManager):
         """
         Parameters
         ----------
-        observe_parent : bool
-            Observe the parent of the Token being selected?
+        observe_parent : bool. Observe the parent of the Token being selected?
 
-        observe_sibling : bool
-            Observe the sibling of the Token being selected?
+        observe_sibling : bool. Observe the sibling of the Token being selected?
 
-        observe_action : bool
-            Observe the previously selected Token?
+        observe_action : bool.  Observe the previously selected Token?
 
-        observe_dangling : bool
-            Observe the number of dangling nodes?
+        observe_dangling : bool. Observe the number of dangling nodes?
 
-        embedding : bool
-            Use embeddings for categorical inputs?
+        embedding : bool.  Use embeddings for categorical inputs?
 
-        embedding_size : int
-            Size of embeddings for each categorical input if embedding=True.
+        embedding_size : int. Size of embeddings for each categorical input if embedding=True.
         """
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling

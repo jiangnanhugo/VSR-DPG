@@ -55,27 +55,25 @@ def print_summary(config, runs, messages):
 @click.command()
 @click.argument('config_template', default="")
 @click.option('--equation_name', '--e', default=None, type=str, help="Name of equation")
+@click.option('--metric_name', '--mn', default='inv_nrmse', type=str, help="evaluation metrics")
 @click.option('--noise_type', '--nt', default='normal', type=str, help="")
 @click.option('--noise_scale', '--ns', default=0.0, type=float, help="")
 @click.option('--runs', '--r', default=1, type=int, help="Number of independent runs with different seeds")
 @click.option('--n_cores_task', '--n', default=1, help="Number of cores to spread out across tasks")
 @click.option('--logdir', '--l', default="log", type=str, help="logdir folder")
-def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_task, logdir):
+def main(config_template, equation_name, metric_name, noise_type, noise_scale, runs, n_cores_task, logdir):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
-
-    messages = []
 
     # Load the experiment config
     config_template = config_template if config_template != "" else None
     config = load_config(config_template)
-    data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name='inv_nrmse')
+    data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name=metric_name)
     dataXgen = DataX(data_query_oracle.get_vars_range_and_types())
     nvar = data_query_oracle.get_nvars()
-    function_set= data_query_oracle.operators_set
+    function_set = data_query_oracle.operators_set
 
-    operators_set = data_query_oracle.get_operators_set()
-
-    production_rules = get_production_rules(0, operators_set)
+    production_rules = get_production_rules(0, function_set)
+    num_iterations = create_uniform_generations(num_per_episodes, nvar)
 
     # Overwrite config seed, if specified
     seed = int(time.perf_counter() * 10000) % 1000007
@@ -94,18 +92,13 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
     # Fix incompatible configurations
     if n_cores_task == -1:
         n_cores_task = multiprocessing.cpu_count()
+
+    messages = []
     if n_cores_task > runs:
-        messages.append(
-            "INFO: Setting 'n_cores_task' to {} because there are only {} runs.".format(
-                runs, runs))
         n_cores_task = runs
     if config["training"]["verbose"] and n_cores_task > 1:
-        messages.append(
-            "INFO: Setting 'verbose' to False for parallelized run.")
         config["training"]["verbose"] = False
     if config["training"]["n_cores_batch"] != 1 and n_cores_task > 1:
-        messages.append(
-            "INFO: Setting 'n_cores_batch' to 1 to avoid nested child processes.")
         config["training"]["n_cores_batch"] = 1
 
     # Start training
@@ -117,6 +110,16 @@ def main(config_template, equation_name, noise_type, noise_scale, runs, n_cores_
         config["experiment"]["seed"] += i
 
     # Farm out the work
+    for round_idx in range(len(num_iterations)):
+        print('++++++++++++ ROUND {}  ++++++++++++'.format(round_idx))
+        MCTS.program.set_vf(round_idx)
+        MCTS.task.set_allowed_inputs(MCTS.program.get_vf())
+        if round_idx < len(num_iterations):
+            grammars += get_var_i_production_rules(round_idx, operators_set)
+        print("grammars:", grammars)
+        print("aug grammars:", aug_grammars)
+        print("aug ntn nodes:", aug_nt_nodes)
+        print("num_rollouts:", num_rollouts)
     if n_cores_task > 1:
         pool = multiprocessing.Pool(n_cores_task)
         for i, (result, summary_path) in enumerate(
