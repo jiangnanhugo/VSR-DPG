@@ -13,20 +13,6 @@ def pretty_print_expr(eq) -> str:
     return str(expand(simplify(eq)))
 
 
-def create_geometric_generations(n_generations, nvar, ratio=1.2):
-    gens = [0] * nvar
-    round = 0
-    total_ratios = sum([ratio ** it for it in range(nvar)])
-    for it in range(nvar):
-        gens[it] += int(n_generations * ratio ** it / total_ratios)
-
-    # gens[0] = n_generations
-    for it in range(0, nvar):
-        if gens[it] < 20:
-            gens[it] = 20
-    gens = gens
-    print('generation #:', gens, 'sum=', sum(gens))
-    return gens
 
 
 def nth_repl(s, sub, repl, n):
@@ -47,13 +33,6 @@ def nth_repl(s, sub, repl, n):
 def create_reward_threshold(highest_threhold, nvar, ratio=0.95):
     return [highest_threhold * ratio ** i for i in range(nvar)]
 
-
-def create_uniform_generations(n_generations, nvar):
-    gens = [0] * nvar
-    for it in range(nvar):
-        gens[it] = n_generations
-    print('generation #:', gens, 'sum=', sum(gens))
-    return gens
 
 
 def expression_to_template(expr, stand_alone_constants) -> str:

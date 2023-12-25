@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from cvdso.program import Program
-from cvdso.library import Library
-from cvdso.functions import create_tokens
+# from cvdso.program import Program
+# from cvdso.library import Library
+# from cvdso.functions import create_tokens
 from cvdso.subroutines import parents_siblings
 
 
@@ -35,19 +35,15 @@ class Task(object):
         # Update dangling with (arity - 1) for each element in action
         dangling += lib.arities[action] - 1
 
-        prior = self.prior(actions, parent, sibling, dangling)  # (?, n_choices)
-
         next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
         next_obs = next_obs.astype(np.float32)
-        return next_obs, prior
+        return next_obs
 
-    def reset_task(self, prior):
+    def reset_task(self):
         """
         Returns the initial observation: empty action, parent, and sibling, and
         dangling is 1.
         """
-
-        self.prior = prior
 
         # Order of observations: action, parent, sibling, dangling
         initial_obs = np.array([self.library.EMPTY_ACTION,

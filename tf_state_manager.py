@@ -3,45 +3,8 @@ from abc import ABC, abstractmethod
 import tensorflow as tf
 
 from cvdso.program import Program
-
-
-class StateManager(ABC):
-    """
-    An interface for handling the tf.Tensor inputs to the Controller.
-    """
-
-    def setup_manager(self, controller):
-        """
-        Function called inside the controller to perform the needed initializations (e.g., if the tf context is needed)
-        :param controller the controller class
-        """
-        self.controller = controller
-        self.max_length = controller.max_length
-
-    @abstractmethod
-    def get_tensor_input(self, obs):
-        """
-        Convert an observation from a Task into a Tesnor input for the
-        Controller, e.g. by performing one-hot encoding or embedding lookup.
-
-        Parameters
-        ----------
-        obs : np.ndarray (dtype=np.float32)
-            Observation coming from the Task.
-
-        Returns
-        --------
-        input_ : tf.Tensor (dtype=tf.float32)
-            Tensor to be used as input to the Controller.
-        """
-        return
-
-    def process_state(self, obs):
-        """
-        Entry point for adding information to the state tuple.
-        If not overwritten, this functions does nothing
-        """
-        return obs
+#
+#
 
 
 def make_state_manager(config):
@@ -57,7 +20,7 @@ def make_state_manager(config):
         The StateManager to be used by the Controller.
     """
     manager_dict = {
-        "hierarchical": HierarchicalStateManager
+        "hierarchical": StateManager
     }
 
     if config is None:
@@ -72,7 +35,7 @@ def make_state_manager(config):
     return state_manager
 
 
-class HierarchicalStateManager(StateManager):
+class StateManager(object):
     """
     Class that uses the previous action, parent, sibling, and/or dangling as
     observations.
@@ -85,15 +48,10 @@ class HierarchicalStateManager(StateManager):
         Parameters
         ----------
         observe_parent : bool. Observe the parent of the Token being selected?
-
         observe_sibling : bool. Observe the sibling of the Token being selected?
-
         observe_action : bool.  Observe the previously selected Token?
-
         observe_dangling : bool. Observe the number of dangling nodes?
-
         embedding : bool.  Use embeddings for categorical inputs?
-
         embedding_size : int. Size of embeddings for each categorical input if embedding=True.
         """
         self.observe_parent = observe_parent
@@ -109,8 +67,13 @@ class HierarchicalStateManager(StateManager):
         self.embedding = embedding
         self.embedding_size = embedding_size
 
-    def setup_manager(self, controller):
-        super().setup_manager(controller)
+    def setup_manager(self, expression_decoder):
+        """
+            Function called inside the controller to perform the needed initializations (e.g., if the tf context is needed)
+            :param expression_decoder the controller class
+        """
+        self.expression_decoder = expression_decoder
+        self.max_length = expression_decoder.max_length
         # Create embeddings if needed
         if self.embedding:
             initializer = tf.compat.v1.random_uniform_initializer(minval=-1.0,
@@ -166,3 +129,4 @@ class HierarchicalStateManager(StateManager):
 
         input_ = tf.concat(observations, -1)
         return input_
+

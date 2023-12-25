@@ -3,7 +3,7 @@
 import array
 import warnings
 
-from cvdso.functions import PlaceholderConstant
+from cvdso.symbolic_expression.functions import PlaceholderConstant
 from functools import partial
 
 import numpy as np
@@ -214,8 +214,6 @@ class Program(object):
         if have_run:
             self.set_constants(state_dict['const'].tolist())
             self.invalid = state_dict['invalid']
-            self.error_node = state_dict['error_node'].tounicode()
-            self.error_type = state_dict['error_type'].tounicode()
             self.on_policy_count = state_dict['on_policy_count']
             self.off_policy_count = state_dict['off_policy_count']
 
@@ -369,32 +367,12 @@ class Program(object):
 
             return self.task.evaluate(self)
 
-    @cached_property
-    def sympy_expr(self):
-        """
-        Returns the attribute self.sympy_expr.
-
-        This is actually a bit complicated because we have to go: traversal -->
-        tree --> serialized tree --> SymPy expression
-        """
-
-        exprs = []
-        for i in range(len(self.traversal)):
-            tree = self.traversal[i].copy()
-            exprs.append(tree)
-        return exprs
 
     def print_stats(self):
         """Prints the statistics of the program
         
-            We will print the most honest reward possible when using validation.
-        """
-
+            We will print the most honest reward possible when using validation."""
         print("\tReward: {}".format(self.r))
-        print("\tCount Off-policy: {}".format(self.off_policy_count))
-        print("\tCount On-policy: {}".format(self.on_policy_count))
-        print("\tOriginally on Policy: {}".format(self.originally_on_policy))
-        print("\tInvalid: {}".format(self.invalid))
         print("\tTraversal: {}".format(self))
         self.task.rand_draw_data_with_X_fixed()
         self.task.print_reward_function_all_metrics(self)

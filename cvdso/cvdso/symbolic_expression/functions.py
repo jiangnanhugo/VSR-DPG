@@ -3,7 +3,7 @@
 import numpy as np
 from fractions import Fraction
 
-from cvdso.library import Token, PlaceholderConstant, HardCodedConstant
+from cvdso.symbolic_expression.library import Token, PlaceholderConstant, HardCodedConstant
 import cvdso.utils as U
 
 GAMMA = 0.57721566490153286060651209008240243104215933593992
@@ -26,7 +26,6 @@ def create_tokens(n_input_var, function_set, protected):
         tokens.append(token)
 
     for op in function_set:
-
         # Registered Token
         if op in function_map:
             # Overwrite available protected operators

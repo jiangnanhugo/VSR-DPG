@@ -13,7 +13,7 @@ from sympy import lambdify
 from scipy.optimize import minimize
 from scipy.optimize import basinhopping, shgo, dual_annealing
 
-from cvdso.grammar_utils import pretty_print_expr
+from cvdso.grammar.grammar_utils import pretty_print_expr
 
 
 class grammarProgram(object):
@@ -30,7 +30,7 @@ class grammarProgram(object):
         self.vf = [0, ] * n_vars
 
         self.n_vars = n_vars
-        self.optimizer = optimizer
+        optimizer = optimizer
 
         self.optimized_constants = []
         self.optimized_obj = []
@@ -93,40 +93,7 @@ class grammarProgram(object):
             # do more than one experiment,
             x0 = np.random.rand(len(c_lst))
             try:
-                # optimize the constants in the expression
-                if self.optimizer == 'Nelder-Mead':
-                    opt_result = minimize(f, x0, method='Nelder-Mead', options={'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': max_opt_iter})
-
-                elif self.optimizer == 'BFGS':
-                    opt_result = minimize(f, x0, method='BFGS', options={'maxiter': max_opt_iter})
-                elif self.optimizer == 'CG':
-                    opt_result = minimize(f, x0, method='CG', options={'maxiter': max_opt_iter})
-                elif self.optimizer == 'L-BFGS-B':
-                    opt_result = minimize(f, x0, method='L-BFGS-B', options={'maxiter': max_opt_iter})
-                elif self.optimizer == "basinhopping":
-                    minimizer_kwargs = {"method": "Nelder-Mead",
-                                        "options": {'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': 100}}
-                    opt_result = basinhopping(f, x0, minimizer_kwargs=minimizer_kwargs, niter=max_opt_iter)
-                elif self.optimizer == 'dual_annealing':
-                    minimizer_kwargs = {"method": "Nelder-Mead",
-                                        "options": {'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': 100}}
-                    lw = [-5] * num_changing_consts
-                    up = [5] * num_changing_consts
-                    bounds = list(zip(lw, up))
-                    opt_result = dual_annealing(f, bounds, minimizer_kwargs=minimizer_kwargs, maxiter=max_opt_iter)
-                elif self.optimizer == 'shgo':
-                    minimizer_kwargs = {"method": "Nelder-Mead",
-                                        "options": {'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': 100}}
-                    lw = [-5] * num_changing_consts
-                    up = [5] * num_changing_consts
-                    bounds = list(zip(lw, up))
-                    opt_result = shgo(f, bounds, minimizer_kwargs=minimizer_kwargs, options={'maxiter': max_opt_iter})
-                # elif self.optimizer == "direct":
-                #     lw = [-10] * num_changing_consts
-                #     up = [10] * num_changing_consts
-                #     bounds = list(zip(lw, up))
-                #     opt_result = direct(f, bounds, maxiter=max_opt_iter)
-
+                opt_result=scipy_minimize(f, x0, self.optimizer, num_changing_consts, max_opt_iter)
                 t_optimized_constants = opt_result['x']
                 c_lst = t_optimized_constants.tolist()
                 t_optimized_obj = opt_result['fun']
@@ -190,6 +157,46 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
         y_hat = np.ones(data_X.shape[-1]) * np.infty
 
     return y_hat
+
+
+def scipy_minimize(f, x0, optimizer, num_changing_consts, max_opt_iter):
+    # optimize the constants in the expression
+    if optimizer == 'Nelder-Mead':
+        opt_result = minimize(f, x0, method='Nelder-Mead', options={'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': max_opt_iter})
+
+    elif optimizer == 'BFGS':
+        opt_result = minimize(f, x0, method='BFGS', options={'maxiter': max_opt_iter})
+    elif optimizer == 'CG':
+        opt_result = minimize(f, x0, method='CG', options={'maxiter': max_opt_iter})
+    elif optimizer == 'L-BFGS-B':
+        opt_result = minimize(f, x0, method='L-BFGS-B', options={'maxiter': max_opt_iter})
+    elif optimizer == "basinhopping":
+        minimizer_kwargs = {"method": "Nelder-Mead",
+                            "options": {'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': 100}}
+        opt_result = basinhopping(f, x0, minimizer_kwargs=minimizer_kwargs, niter=max_opt_iter)
+    elif optimizer == 'dual_annealing':
+        minimizer_kwargs = {"method": "Nelder-Mead",
+                            "options": {'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': 100}}
+        lw = [-5] * num_changing_consts
+        up = [5] * num_changing_consts
+        bounds = list(zip(lw, up))
+        opt_result = dual_annealing(f, bounds, minimizer_kwargs=minimizer_kwargs, maxiter=max_opt_iter)
+    elif optimizer == 'shgo':
+        minimizer_kwargs = {"method": "Nelder-Mead",
+                            "options": {'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': 100}}
+        lw = [-5] * num_changing_consts
+        up = [5] * num_changing_consts
+        bounds = list(zip(lw, up))
+        opt_result = shgo(f, bounds, minimizer_kwargs=minimizer_kwargs, options={'maxiter': max_opt_iter})
+    # elif optimizer == "direct":
+    #     lw = [-10] * num_changing_consts
+    #     up = [10] * num_changing_consts
+    #     bounds = list(zip(lw, up))
+    #     opt_result = direct(f, bounds, maxiter=max_opt_iter)
+
+
+    return opt_result
+
 
 #
 # def execute_eval(expr_str: str, data_X: np.ndarray, input_var_Xs, simulated_steps: int, dt: float):

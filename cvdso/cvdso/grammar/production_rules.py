@@ -35,6 +35,20 @@ def to_binary_expr_tree(expr):
             return [op.__name__, left, right]
 
 
+class grammarLibrary(object):
+    def __init__(self, nvars, list_of_production_rules):
+        self.nvars=nvars
+        self.grammars=list_of_production_rules
+        self.allowed_grammar=np.ones(len(self.grammars))
+
+    def print_grammar_library(self):
+        print('============== GRAMMAR LIBRARY ==============')
+        print('{0: >8} {1: >10} {2: >8}'.format('ID', 'NAME',  'ALLOWED'))
+        for i in range(self.nvars):
+            print('{} {}'.format(i, self.grammars[i][i], self.allowed_grammar[i]))
+        print('========== END OF GRAMMAR LIBRARY ===========')
+
+
 def get_production_rules(nvars, operators_set, non_terminal_node='A'):
     """
     nvars: number of input variables.

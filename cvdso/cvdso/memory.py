@@ -7,7 +7,7 @@ import numpy as np
 
 
 Batch = namedtuple(
-    "Batch", ["actions", "obs", "priors", "lengths", "rewards", "on_policy"])
+    "Batch", ["actions", "obs", "lengths", "rewards", "on_policy"])
 
 
 def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
@@ -67,7 +67,7 @@ def get_samples(batch, key):
     batch = Batch(
         actions=batch.actions[key],
         obs=batch.obs[key],
-        priors=batch.priors[key],
+
         lengths=batch.lengths[key],
         rewards=batch.rewards[key],
         on_policy=batch.on_policy[key])
@@ -329,11 +329,11 @@ class ProgramQueueMixin():
 
         actions = np.stack([s.actions for s in samples], axis=0)
         obs = np.stack([s.obs for s in samples], axis=0)
-        priors = np.stack([s.priors for s in samples], axis=0)
+
         lengths = np.array([s.lengths for s in samples], dtype=np.int32)
         rewards = np.array([s.rewards for s in samples], dtype=np.float32)
-        on_policy = np.array([s.on_policy for s in samples], dtype=np.bool)
-        batch = Batch(actions=actions, obs=obs, priors=priors,
+        on_policy = np.array([s.on_policy for s in samples], dtype=bool)
+        batch = Batch(actions=actions, obs=obs,
                       lengths=lengths, rewards=rewards, on_policy=on_policy)
         return batch
 

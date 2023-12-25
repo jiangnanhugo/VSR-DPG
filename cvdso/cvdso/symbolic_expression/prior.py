@@ -11,7 +11,7 @@ from cvdso.subroutines import jit_check_constraint_violation, \
     jit_check_constraint_violation_descendant_no_target_tokens, \
     jit_check_constraint_violation_uchild, get_position, get_mask
 from cvdso.program import Program
-from cvdso.language_model import LanguageModelPrior as LM
+# from cvdso.language_model import LanguageModelPrior as LM
 from cvdso.utils import import_custom_source
 
 
@@ -28,7 +28,7 @@ def make_prior(library, config_prior):
         "no_inputs": NoInputsConstraint,
         "soft_length": SoftLengthPrior,
         "uniform_arity": UniformArityPrior,
-        "language_model": LanguageModelPrior
+        # "language_model": LanguageModelPrior
     }
 
     count_constraints = config_prior.pop("count_constraints", False)
@@ -478,38 +478,6 @@ class RelationalConstraint(Constraint):
         return message
 
 
-class TrigConstraint(RelationalConstraint):
-    """Class that constrains trig Tokens from being the descendants of trig
-    Tokens."""
-
-    def __init__(self, library):
-        targets = library.trig_tokens
-        effectors = library.trig_tokens
-        super(TrigConstraint, self).__init__(library=library,
-                                             targets=targets,
-                                             effectors=effectors,
-                                             relationship="descendant")
-
-    def is_violated(self, actions, parent, sibling):
-        # Call a slightly faster descendant computation since target is the same as effectors
-        return jit_check_constraint_violation_descendant_no_target_tokens( \
-            actions, self.effectors, self.library.binary_tokens, self.library.unary_tokens)
-
-
-class ConstConstraint(RelationalConstraint):
-    """Class that constrains the const Token from being the only unique child
-    of all non-terminal Tokens."""
-
-    def __init__(self, library):
-        targets = library.const_token
-        effectors = np.concatenate([library.unary_tokens,
-                                    library.binary_tokens])
-
-        super(ConstConstraint, self).__init__(library=library,
-                                              targets=targets,
-                                              effectors=effectors,
-                                              relationship="uchild")
-
 
 class NoInputsConstraint(Constraint):
     """Class that constrains sequences without input variables.
@@ -585,68 +553,6 @@ class InverseUnaryConstraint(Constraint):
         message = [prior.describe() for prior in self.priors]
         return "\n{}: ".format(self.__class__.__name__).join(message)
 
-
-class RepeatConstraint(Constraint):
-    """Class that constrains Tokens to appear between a minimum and/or maximum
-    number of times."""
-
-    def __init__(self, library, tokens, min_=None, max_=None):
-        """
-        Parameters
-        ----------
-        tokens : Token or list of Tokens
-            Token(s) which should, in total, occur between min_ and max_ times.
-
-        min_ : int or None
-            Minimum number of times tokens should occur.
-
-        max_ : int or None
-            Maximum number of times tokens should occur.
-        """
-
-        Prior.__init__(self, library)
-        assert min_ is not None or max_ is not None, \
-            "{}: At least one of (min_, max_) must not be None.".format(self.__class__.__name__)
-        self.min = min_
-        self.max = max_
-        self.n_objects = Program.n_objects
-        self.tokens = library.actionize(tokens)
-
-        assert min_ is None, "{}: Repeat minimum constraints are not yet " \
-                             "supported. This requires knowledge of length constraints.".format(self.__class__.__name__)
-
-    def __call__(self, actions, parent, sibling, dangling):
-        if self.n_objects > 1:
-            _, i_batch = get_position(actions, self.library.arities, n_objects=self.n_objects)
-            actions = np.copy(actions)
-            mask = get_mask(i_batch, actions.shape[1])
-            actions[mask == 0] = -1
-
-        counts = np.sum(np.isin(actions, self.tokens), axis=1)
-        prior = self.init_zeros(actions)
-        if self.min is not None:
-            raise NotImplementedError
-        if self.max is not None:
-            mask = counts >= self.max
-            prior += self.make_constraint(mask, self.tokens)
-
-        return prior
-
-    def is_violated(self, actions, parent, sibling):
-        return bool(np.isin(actions, self.tokens).sum() > self.max)
-
-    def describe(self):
-        names = ", ".join([self.library.names[t] for t in self.tokens])
-        if self.min is None:
-            message = "{}: [{}] cannot occur more than {} times." \
-                .format(self.__class__.__name__, names, self.max)
-        elif self.max is None:
-            message = "{}: [{}] must occur at least {} times." \
-                .format(self.__class__.__name__, names, self.min)
-        else:
-            message = "{}: [{}] must occur between {} and {} times." \
-                .format(self.__class__.__name__, names, self.min, self.max)
-        return message
 
 
 class LengthConstraint(Constraint):

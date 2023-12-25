@@ -7,8 +7,16 @@ import numpy as np
 import time
 import importlib
 import re
+import pandas as pd
+
+
+import os
+
+import commentjson as json
+
 def is_float(s):
     """Determine whether the input variable can be cast to float."""
+
     try:
         float(s)
         return True
@@ -130,33 +138,119 @@ def get_human_readable_time(s):
     return "{:02d}:{:02d}:{:02d}:{:05.2f}".format(int(d), int(h), int(m), s)
 
 
+def safe_merge_dicts(base_dict, update_dict):
+    """Merges two dictionaries without changing the source dictionaries.
 
-
-
-def import_custom_source(import_source):
-    """
-    Provides a way to import custom modules. The return will be a reference to the desired source
     Parameters
     ----------
-        import_source : import path
-            Source to import from, for most purposes: <module_name>:<class or function name>
+        base_dict : dict
+            Source dictionary with initial values.
+        update_dict : dict
+            Dictionary with changed values to update the base dictionary.
 
     Returns
     -------
-        mod : ref
-            reference to the imported module
+        new_dict : dict
+            Dictionary containing values from the merged dictionaries.
     """
+    if base_dict is None:
+        return update_dict
+    base_dict = copy.deepcopy(base_dict)
+    for key, value in update_dict.items():
+        if isinstance(value, collections.abc.Mapping):
+            base_dict[key] = safe_merge_dicts(base_dict.get(key, {}), value)
+        else:
+            base_dict[key] = value
+    return base_dict
 
-    # Partially validates if the import_source is in correct format
-    regex = '[\w._]+:[\w._]+' #lib_name:class_name
-    m = re.match(pattern=regex, string=import_source)
-    # Partial matches mean that the import will fail
-    assert m is not None and m.end() == len(import_source), "*** Failed to import malformed source string: "+import_source
 
-    source, type = import_source.split(':')
+def safe_update_summary(csv_path, new_data):
+    """Updates a summary csv file with new rows. Adds new columns
+    in existing data if necessary. New rows are distinguished by
+    the run seed.
 
-    # Dynamically imports the configured source
-    mod = importlib.import_module(source)
-    func = getattr(mod, type)
+    Parameters
+    ----------
+        csv_path : str
+            String with the path to the csv file.
+        new_data : dict
+            Dictionary containing values to be saved in the csv file.
 
-    return func
+    Returns
+    -------
+        bool
+            Boolean value to indicate if saving the data to file worked.
+    """
+    try:
+        new_data_pd = pd.DataFrame(new_data, index=[0])
+        new_data_pd.set_index('seed', inplace=True)
+        if os.path.isfile(csv_path):
+            old_data_pd = pd.read_csv(csv_path)
+            old_data_pd.set_index('seed', inplace=True)
+            merged_df = pd.concat([old_data_pd, new_data_pd], axis=0, ignore_index=False)
+            merged_df.to_csv(csv_path, header=True, mode='w+', index=True)
+        else:
+            new_data_pd.to_csv(csv_path, header=True, mode='w+', index=True)
+        return True
+    except:
+        return False
+
+
+
+
+
+##### load configure files
+def get_base_config():
+    # Load base config
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'config', "config_common.json"), encoding='utf-8') as f:
+        base_config = json.load(f)
+
+    # Load task specific config
+    task_config_file = "config_regression.json"
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'config', task_config_file), encoding='utf-8') as f:
+        task_config = json.load(f)
+
+    return safe_merge_dicts(base_config, task_config)
+
+
+def load_config(config=None):
+    # Load user config
+    if isinstance(config, str):
+        with open(config, encoding='utf-8') as f:
+            user_config = json.load(f)
+    elif isinstance(config, dict):
+        user_config = config
+    else:
+        assert config is None, "Config must be None, str, or dict."
+        user_config = {}
+
+    # Load task-specific base config
+    base_config = get_base_config()
+
+    # Return combined configs
+    return safe_merge_dicts(base_config, user_config)
+
+
+
+def create_geometric_generations(n_generations, nvar, ratio=1.2):
+    gens = [0] * nvar
+    round = 0
+    total_ratios = sum([ratio ** it for it in range(nvar)])
+    for it in range(nvar):
+        gens[it] += int(n_generations * ratio ** it / total_ratios)
+
+    # gens[0] = n_generations
+    for it in range(0, nvar):
+        if gens[it] < 20:
+            gens[it] = 20
+    gens = gens
+    print('generation #:', gens, 'sum=', sum(gens))
+    return gens
+
+
+def create_uniform_generations(n_generations, nvar):
+    gens = [0] * nvar
+    for it in range(nvar):
+        gens[it] = n_generations
+    print('generation #:', gens, 'sum=', sum(gens))
+    return gens

@@ -7,8 +7,8 @@ from itertools import compress
 import tensorflow as tf
 import numpy as np
 
-from cvdso.program import Program, from_tokens
-from cvdso.utils import empirical_entropy, get_duration, weighted_quantile
+from cvdso.symbolic_expression.program import Program, from_tokens
+from cvdso.utils import empirical_entropy, weighted_quantile
 from cvdso.memory import Batch, make_queue
 from cvdso.variance import quantile_variance
 from cvdso.train_stats import StatsLogger
@@ -17,8 +17,8 @@ from cvdso.train_stats import StatsLogger
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 #
-# # Set TensorFlow seed
-# tf.compat.v1.set_random_seed(0)
+from cvdso.grammar.production_rules import production_rules_to_expr
+
 
 
 # Work for multiprocessing pool: compute reward
@@ -128,14 +128,6 @@ def learn(sess, expression_decoder, pool, output_file,
     # Initialize compute graph
     sess.run(tf.compat.v1.global_variables_initializer())
 
-    if debug:
-        tvars = tf.compat.v1.trainable_variables()
-
-        def print_var_means():
-            tvars_vals = sess.run(tvars)
-            for var, val in zip(tvars, tvars_vals):
-                print(var.name, "mean:", val.mean(), "var:", val.var())
-
     # Create the priority queue
     k = expression_decoder.pqt_k
     if expression_decoder.pqt and k is not None and k > 0:
@@ -151,14 +143,16 @@ def learn(sess, expression_decoder, pool, output_file,
 
         # Warm start the queue
         warm_start = warm_start if warm_start is not None else batch_size
-        actions, obs, priors = expression_decoder.sample(warm_start)
+        actions, obs = expression_decoder.sample(warm_start)
         print("sampled actions:", actions)
         # construct program based on the input token indices
+        grammar_programs = [production_rules_to_expr(a) for a in actions]
         programs = [from_tokens(a) for a in actions]
+        grammar_r=np.array([gp.r for gp in grammar_programs])
         r = np.array([p.r for p in programs])
         l = np.array([len(p.traversal) for p in programs])
         on_policy = np.array([p.originally_on_policy for p in programs])
-        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+        sampled_batch = Batch(actions=actions, obs=obs,
                               lengths=l, rewards=r, on_policy=on_policy)
         memory_queue.push_batch(sampled_batch, programs)
     else:
@@ -166,7 +160,7 @@ def learn(sess, expression_decoder, pool, output_file,
 
     if debug >= 1:
         print("\nInitial parameter means:")
-        print_var_means()
+        print_var_means(sess)
 
     r_history = None
 
@@ -177,7 +171,7 @@ def learn(sess, expression_decoder, pool, output_file,
     ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
     n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
     nevals = 0  # Total number of sampled expressions (from RL)
-    print("max epoches", n_epochs)
+    print("max epochs", n_epochs)
     positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
@@ -191,17 +185,16 @@ def learn(sess, expression_decoder, pool, output_file,
         print("-- RUNNING EPOCHS START -------------")
 
     for epoch in range(n_epochs):
-
         # Set of str representations for all Programs ever seen
         s_history = set(Program.cache.keys())
 
         # Sample batch of Programs from the expression_decoder
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
-        # Shape of priors: (batch_size, max_length, n_choices)
-        actions, obs, priors = expression_decoder.sample(batch_size)
+        actions, obs = expression_decoder.sample(batch_size)
         # if verbose:
         #     print("sampled actions:", actions)
+        grammar_programs = [production_rules_to_expr(a) for a in actions]
         programs = [from_tokens(a) for a in actions]
         nevals += batch_size
 
@@ -322,11 +315,10 @@ def learn(sess, expression_decoder, pool, output_file,
             p_train = programs = list(compress(programs, keep))
 
             '''
-                get the action, observation, priors and on_policy status of all programs returned to the controller.
+                get the action, observation and on_policy status of all programs returned to the controller.
             '''
             actions = actions[keep, :]
             obs = obs[keep, :, :]
-            priors = priors[keep, :, :]
             on_policy = on_policy[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
@@ -353,7 +345,7 @@ def learn(sess, expression_decoder, pool, output_file,
                             for p in p_train], dtype=np.int32)
 
         # Create the Batch
-        sampled_batch = Batch(actions=actions, obs=obs, priors=priors,
+        sampled_batch = Batch(actions=actions, obs=obs,
                               lengths=lengths, rewards=r_train, on_policy=on_policy)
 
         # Update and sample from the priority queue
@@ -389,38 +381,34 @@ def learn(sess, expression_decoder, pool, output_file,
 
         # Print new best expression
         if verbose and new_r_best:
-            print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch + 1, n_epochs, prev_r_best))
+            print(" Training epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs, prev_r_best))
             print("\n\t** New best")
             p_r_best.print_stats()
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
-            print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
+            print("Early stopping criteria met; breaking early.")
             break
         if early_stopping and p_r_best.evaluate.get("success"):
-            print("[{}] Early stopping criteria met; breaking early.".format(get_duration(start_time)))
+            print("Early stopping criteria met; breaking early.")
             break
 
         if verbose and (epoch + 1) % 10 == 0:
-            print("[{}] Training epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch + 1, n_epochs, prev_r_best))
+            print("Training epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs, prev_r_best))
 
         if debug >= 2:
             print("\nParameter means after epoch {} of {}:".format(epoch + 1, n_epochs))
-            print_var_means()
+            print_var_means(sess)
 
         if verbose and (epoch + 1) == n_epochs:
-            print("[{}] Ending training after epoch {}/{}, current best R: {:.4f}".format(get_duration(start_time), epoch + 1, n_epochs,
+            print("Ending training after epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs,
                                                                                           prev_r_best))
 
         if nevals > n_samples:
             break
 
-    if verbose:
-        print("-- RUNNING EPOCHS END ---------------\n")
-        print("-- EVALUATION START ----------------")
-        # print("\n[{}] Evaluating the hall of fame...\n".format(get_duration(start_time)))
 
-    expression_decoder.prior.report_constraint_counts()
+
 
     # Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
     results_add = logger.save_results(positional_entropy, top_samples_per_batch, r_history, pool, epoch, nevals)
@@ -452,3 +440,10 @@ def learn(sess, expression_decoder, pool, output_file,
     if verbose:
         print("-- EVALUATION END ------------------")
     return result
+
+
+def print_var_means(sess):
+    tvars = tf.compat.v1.trainable_variables()
+    tvars_vals = sess.run(tvars)
+    for var, val in zip(tvars, tvars_vals):
+        print(var.name, "mean:", val.mean(), "var:", val.var())

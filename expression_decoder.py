@@ -3,9 +3,10 @@
 import tensorflow as tf
 import numpy as np
 
-from cvdso.program import Program
+# from cvdso.symbolic_expression.program import Program
+from cvdso.grammar.grammar import ContextFreeGrammar
 from cvdso.memory import Batch
-from cvdso.prior import LengthConstraint
+from cvdso.symbolic_expression.prior import LengthConstraint
 
 
 class LinearWrapper:
@@ -40,116 +41,41 @@ class LinearWrapper:
 
 class ExpressionDecoder(object):
     """
-    Recurrent neural network (RNN) controller used to generate expressions.
+    Recurrent neural network (RNN) used to generate expressions. Specifically, the RNN outputs a distribution over the production rules
+    of symbolic expression. It is trained using REINFORCE with baseline.
 
-    Specifically, the RNN outputs a distribution over pre-order traversals of
-    symbolic expression trees. It is trained using REINFORCE with baseline.
-
-    Parameters
-    ----------
-    sess : tf.Session
-        TenorFlow Session object.
-
-    prior : dso.prior.JointPrior
-        JointPrior object used to adjust probabilities during sampling.
-
-    state_manager: dso.tf_state_manager.StateManager
-        Object that handles the state features to be used
-
+    sess : tf.Session. TenorFlow Session object.
+    state_manager: dso.tf_state_manager.StateManager. Object that handles the state features to be used
     summary : bool.  Write tensorboard summaries?
-
-    debug : int
-        Debug level, also used in learn(). 0: No debug. 1: Print shapes and
-        number of parameters for each variable.
-
-
-
-    num_layers : int. Number of RNN layers.
-
-    num_units : int or list of ints
-        Number of RNN cell units in each of the RNN's layers. If int, the value
-        is repeated for each layer.
-
-    initiailizer : str
-        Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'.
-
-    optimizer : str
-        Optimizer to use. Supports 'adam', 'rmsprop', and 'sgd'.
-
-    learning_rate : float
-        Learning rate for optimizer.
-
-    entropy_weight : float
-        Coefficient for entropy bonus.
-
-    entropy_gamma : float or None
-        Gamma in entropy decay. None (or
-        equivalently, 1.0) turns off entropy decay.
-
-    pqt : bool
-        Train with priority queue training (PQT)?
-
-    pqt_k : int
-        Size of priority queue.
-
-    pqt_batch_size : int
-        Size of batch to sample (with replacement) from priority queue.
-
-    pqt_weight : float
-
-    max_length : int or None
-        Maximum sequence length. This will be overridden if a LengthConstraint
-        with a maximum length is part of the prior.
+    debug : int. Debug level. 0: No debug. 1: Print shapes and number of parameters for each variable.
+    max_length : int.  Maximum sequence length.
     """
 
-    def __init__(self, sess, prior, state_manager, debug=0, summary=False,
+    def __init__(self, sess, state_manager, debug=0, summary=False,
                  # RNN cell hyperparameters
-                 cell='lstm',                                    #   cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
-                 num_layers=1,
-                 num_units=32,
+                 cell='lstm',  # cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
+                 num_layers=1,  # Number of RNN layers.
+                 num_units=32,  # Number of RNN cell units in each of the RNN's layers.
                  initializer='zeros',
                  # Optimizer hyperparameters
                  optimizer='adam',
                  learning_rate=0.001,
                  # Loss hyperparameters
-                 entropy_weight=0.005,
-                 entropy_gamma=1.0,
+                 entropy_weight=0.005,  # Coefficient for entropy bonus.
+                 entropy_gamma=1.0,  # Gamma in entropy decay.
                  # PQT hyperparameters
-                 pqt=False,
-                 pqt_k=10,
-                 pqt_batch_size=1,
-                 pqt_weight=200.0,                               # Coefficient for PQT loss function.
-                 pqt_use_pg=False,                               # Use policy gradient loss when using PQT?
+                 pqt=False,  # Train with priority queue training (PQT)?
+                 pqt_k=10,  # Size of priority queue.
+                 pqt_batch_size=1,  # Size of batch to sample (with replacement) from priority queue.
+                 pqt_weight=200.0,  # Coefficient for PQT loss function.
+                 pqt_use_pg=False,  # Use policy gradient loss when using PQT?
                  # Other hyperparameters
                  max_length=30):
 
         self.sess = sess
-        self.prior = prior
         self.summary = summary
-        self.n_objects = Program.n_objects
-
-        # Find max_length from the LengthConstraint prior, if it exists
-        # Both priors will never happen in the same experiment
-        prior_max_length = None
-        for single_prior in self.prior.priors:
-            if isinstance(single_prior, LengthConstraint):
-                if single_prior.max is not None:
-                    prior_max_length = single_prior.max
-                    self.max_length = prior_max_length
-                break
-
-        if prior_max_length is None:
-            assert max_length is not None, "max_length must be specified if " \
-                                           "there is no LengthConstraint."
-            self.max_length = max_length
-            print("WARNING: Maximum length not constrained. Sequences will "
-                  "stop at {} and complete by repeating the first input "
-                  "variable.".format(self.max_length))
-        elif max_length is not None and max_length != self.max_length:
-            print("WARNING: max_length ({}) will be overridden by value from "
-                  "LengthConstraint ({}).".format(max_length, self.max_length))
-        self.max_length *= self.n_objects
-        max_length = self.max_length
+        # set max length of decoding
+        self.max_length = max_length
 
         # Hyperparameters
         self.entropy_weight = entropy_weight
@@ -157,7 +83,7 @@ class ExpressionDecoder(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        decoder_output_vocab_size = Program.library.L
+        decoder_output_vocab_size = len(ContextFreeGrammar.grammars)
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.compat.v1.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -170,21 +96,6 @@ class ExpressionDecoder(object):
 
         # Build controller RNN
         with tf.compat.v1.name_scope("expression_decoder"):
-            def make_initializer(name):
-                if name == "zeros":
-                    return tf.compat.v1.zeros_initializer()
-                if name == "var_scale":
-                    return tf.compat.v1.keras.initializers.VarianceScaling(
-                        scale=0.5, mode='fan_avg', distribution=("uniform" if True else "truncated_normal"), seed=0)
-                raise ValueError("Did not recognize initializer '{}'".format(name))
-
-            def make_cell(name, num_units, initializer):
-                if name == 'lstm':
-                    return tf.compat.v1.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
-                if name == 'gru':
-                    return tf.compat.v1.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer,
-                                                            bias_initializer=initializer)
-                raise ValueError("Did not recognize cell type '{}'".format(name))
 
             # Create recurrent cell
             if isinstance(num_units, int):
@@ -194,18 +105,11 @@ class ExpressionDecoder(object):
             cell = LinearWrapper(cell=cell, output_size=decoder_output_vocab_size)
 
             task = Program.task
-            initial_obs = task.reset_task(prior)
+            initial_obs = task.reset_task()
             state_manager.setup_manager(self)
             initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)])  # (?, obs_dim)
-            initial_obs = state_manager.process_state(initial_obs)
-
-            # Get initial prior
-            initial_prior = self.prior.initial_prior()
-            initial_prior = tf.constant(initial_prior, dtype=tf.float32)
-            initial_prior = tf.broadcast_to(initial_prior, [self.batch_size, decoder_output_vocab_size])
 
             # Define loop function to be used by tf.nn.raw_rnn
-
             def loop_fn(time, cell_output, cell_state, loop_state):
 
                 if cell_output is None:  # time == 0
@@ -218,43 +122,33 @@ class ExpressionDecoder(object):
                     actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True,
                                                 clear_after_read=False)  # Read twice
                     obs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
-                    priors_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
-                    prior = initial_prior
+
                     lengths = tf.ones(shape=[self.batch_size], dtype=tf.int32)
                     next_loop_state = (
                         actions_ta,
                         obs_ta,
-                        priors_ta,
                         obs,
-                        prior,
                         lengths,  # Unused until implementing variable length
                         finished)
                 else:
-                    actions_ta, obs_ta, priors_ta, obs, prior, lengths, finished = loop_state
-                    logits = cell_output + prior
+                    actions_ta, obs_ta, obs, lengths, finished = loop_state
+                    logits = cell_output
                     next_cell_state = cell_state
                     emit_output = logits
                     action = tf.random.categorical(logits=logits, num_samples=1, dtype=tf.int32, seed=1)[:, 0]
-
-                    # When implementing variable length:
-                    # action = tf.where(
-                    #     tf.logical_not(finished),
-                    #     tf.multinomial(logits=logits, num_samples=1, output_dtype=tf.int32)[:, 0],
-                    #     tf.zeros(shape=[self.batch_size], dtype=tf.int32))
                     next_actions_ta = actions_ta.write(time - 1, action)  # Write chosen actions
                     # Get current action batch
                     actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
 
                     # Compute obs and prior
-                    next_obs, next_prior = tf.compat.v1.py_func(func=task.get_next_obs,
-                                                                inp=[actions, obs],
-                                                                Tout=[tf.float32, tf.float32])
-                    next_prior.set_shape([None, decoder_output_vocab_size])
+                    next_obs = tf.compat.v1.py_func(func=task.get_next_obs,
+                                                    inp=[actions, obs],
+                                                    Tout=[tf.float32, tf.float32])
+
                     next_obs.set_shape([None, task.OBS_DIM])
                     next_obs = state_manager.process_state(next_obs)
                     next_input = state_manager.get_tensor_input(next_obs)
                     next_obs_ta = obs_ta.write(time - 1, obs)  # Write OLD obs
-                    next_priors_ta = priors_ta.write(time - 1, prior)  # Write OLD prior
                     finished = next_finished = tf.logical_or(
                         finished,
                         time >= max_length)
@@ -264,9 +158,7 @@ class ExpressionDecoder(object):
                         tf.tile(tf.expand_dims(time + 1, 0), [self.batch_size]))
                     next_loop_state = (next_actions_ta,
                                        next_obs_ta,
-                                       next_priors_ta,
                                        next_obs,
-                                       next_prior,
                                        next_lengths,
                                        next_finished)
 
@@ -275,11 +167,10 @@ class ExpressionDecoder(object):
             # Returns RNN emit outputs TensorArray (i.e. logits), final cell state, and final loop state
             with tf.compat.v1.variable_scope('policy'):
                 _, _, loop_state = tf.compat.v1.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
-                actions_ta, obs_ta, priors_ta, _, _, _, _ = loop_state
+                actions_ta, obs_ta, _, _, _, _ = loop_state
 
             self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0])  # (?, max_length)
             self.obs = tf.transpose(obs_ta.stack(), perm=[1, 2, 0])  # (?, obs_dim, max_length)
-            self.priors = tf.transpose(priors_ta.stack(), perm=[1, 0, 2])  # (?, max_length, decoder_output_vocab_size)
 
         # Generates dictionary containing placeholders needed for a batch of sequences
         def make_batch_ph(name):
@@ -287,7 +178,6 @@ class ExpressionDecoder(object):
                 batch_ph = {
                     "actions": tf.compat.v1.placeholder(tf.int32, [None, max_length]),
                     "obs": tf.compat.v1.placeholder(tf.float32, [None, task.OBS_DIM, self.max_length]),
-                    "priors": tf.compat.v1.placeholder(tf.float32, [None, max_length, decoder_output_vocab_size]),
                     "lengths": tf.compat.v1.placeholder(tf.int32, [None, ]),
                     "rewards": tf.compat.v1.placeholder(tf.float32, [None], name="r"),
                     "on_policy": tf.compat.v1.placeholder(tf.int32, [None, ])
@@ -307,12 +197,12 @@ class ExpressionDecoder(object):
                                                         inputs=state_manager.get_tensor_input(B.obs),
                                                         sequence_length=B.lengths,  # Backpropagates only through sequence length
                                                         dtype=tf.float32)
-            logits += B.priors
+
             probs = tf.nn.softmax(logits)
             logprobs = tf.nn.log_softmax(logits)
 
-            # Generate mask from sequence lengths
-            # NOTE: Using this mask for neglogp and entropy actually does NOT
+            # Masking from sequence lengths
+            # NOTE: Using this mask for neg_log_p and entropy actually does NOT
             # affect training because gradients are zero outside the lengths.
             # However, the mask makes tensorflow summaries accurate.
             mask = tf.sequence_mask(B.lengths, maxlen=max_length, dtype=tf.float32)
@@ -347,7 +237,6 @@ class ExpressionDecoder(object):
 
         # Setup losses
         with tf.compat.v1.name_scope("losses"):
-
             neglogp, entropy = make_neglogp_and_entropy(self.sampled_batch_ph)
             r = self.sampled_batch_ph.rewards
 
@@ -369,20 +258,18 @@ class ExpressionDecoder(object):
 
             self.loss = loss
 
-        # Create training op
+        # compute gradient
         optimizer = make_optimizer(name=optimizer, learning_rate=learning_rate)
         with tf.compat.v1.name_scope("train"):
             self.grads_and_vars = optimizer.compute_gradients(self.loss)
             self.train_op = optimizer.apply_gradients(self.grads_and_vars)
-            # The two lines above are equivalent to:
-            # self.train_op = optimizer.minimize(self.loss)
         with tf.compat.v1.name_scope("grad_norm"):
             self.grads, _ = list(zip(*self.grads_and_vars))
             self.norms = tf.linalg.global_norm(self.grads)
 
         if debug >= 1:
             total_parameters = 0
-            print("")
+            print("parameters lists")
             for variable in tf.compat.v1.trainable_variables():
                 shape = variable.get_shape()
                 n_parameters = np.prod(shape)
@@ -392,6 +279,9 @@ class ExpressionDecoder(object):
                 print("  Parameters:", n_parameters)
             print("Total parameters:", total_parameters)
 
+        self.create_summaries(pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r)
+
+    def create_summaries(self, pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r):
         # Create summaries
         with tf.compat.v1.name_scope("summary"):
             if self.summary:
@@ -417,12 +307,11 @@ class ExpressionDecoder(object):
                 self.summaries = tf.no_op()
 
     def sample(self, batch_size):
-        """Sample batch of n expressions"""
-
+        """Sample a #batch_size of expressions"""
         feed_dict = {self.batch_size: batch_size}
-        actions, obs, priors = self.sess.run([self.actions, self.obs, self.priors], feed_dict=feed_dict)
+        actions, obs = self.sess.run([self.actions, self.obs], feed_dict=feed_dict)
 
-        return actions, obs, priors
+        return actions, obs
 
     def compute_probs(self, memory_batch, log=False):
         """Compute the probabilities of a Batch."""
@@ -455,8 +344,28 @@ class ExpressionDecoder(object):
         return summaries
 
 
-#
+def make_initializer(name):
+    "initiailizer : str. Initializer for the recurrent cell. Supports 'zeros' and 'var_scale'."
+    if name == "zeros":
+        return tf.compat.v1.zeros_initializer()
+    if name == "var_scale":
+        return tf.compat.v1.keras.initializers.VarianceScaling(
+            scale=0.5, mode='fan_avg', distribution=("uniform" if True else "truncated_normal"), seed=0)
+    raise ValueError("Did not recognize initializer '{}'".format(name))
+
+
+def make_cell(name, num_units, initializer):
+    if name == 'lstm':
+        return tf.compat.v1.nn.rnn_cell.LSTMCell(num_units, initializer=initializer)
+    if name == 'gru':
+        return tf.compat.v1.nn.rnn_cell.GRUCell(num_units, kernel_initializer=initializer, bias_initializer=initializer)
+    raise ValueError("Did not recognize cell type '{}'".format(name))
+
+
 def make_optimizer(name, learning_rate):
+    """optimizer : str. Optimizer to use. ['adam', 'rmsprop', 'sgd']
+    learning_rate : float. Learning rate for optimizer.
+    """
     if name == "adam":
         return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
     elif name == "rmsprop":

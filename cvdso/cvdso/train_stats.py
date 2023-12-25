@@ -345,32 +345,9 @@ class StatsLogger(object):
                     if p.evaluate.get("success"):
                         p_final = p
                         break
-                    
-            # Save error summaries
-            # Print error statistics of the cache
-            n_invalid = 0
-            error_types = defaultdict(lambda: 0)
-            error_nodes = defaultdict(lambda: 0)
+
 
             result = {}
-            for p in Program.cache.values():
-                if p.invalid:
-                    count = p.off_policy_count + p.on_policy_count
-                    n_invalid += count
-                    error_types[p.error_type] += count
-                    error_nodes[p.error_node] += count
-
-            if n_invalid > 0:
-                print("Invalid expressions: {} of {} ({:.1%}).".format(n_invalid, n_samples,
-                                                                       n_invalid / n_samples))
-                print("Error type counts:")
-                for error_type, count in error_types.items():
-                    print("  {}: {} ({:.1%})".format(error_type, count, count / n_invalid))
-                    result["error_"+str(error_type)] = count
-                print("Error node counts:")
-                for error_node, count in error_nodes.items():
-                    print("  {}: {} ({:.1%})".format(error_node, count, count / n_invalid))
-                    result["error_node_" + str(error_node)] = count
 
             result['n_epochs'] = n_epochs
             result['n_samples'] = n_samples

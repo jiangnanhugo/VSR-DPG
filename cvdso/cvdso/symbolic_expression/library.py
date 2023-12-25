@@ -150,27 +150,10 @@ class Library(object):
                 self.parent_adjust[i] = count
                 count += 1
 
-        trig_names = ["sin", "cos", "tan", "csc", "sec", "cot"]
-        trig_names += ["arc" + name for name in trig_names]
-
         self.float_tokens = np.array(
             [i for i, t in enumerate(self.tokens) if t.arity == 0 and t.input_var is None],
             dtype=np.int32)
-        self.trig_tokens = np.array(
-            [i for i, t in enumerate(self.tokens) if t.name in trig_names],
-            dtype=np.int32)
 
-        inverse_tokens = {
-            "inv": "inv",
-            "neg": "neg",
-            "exp": "log",
-            "log": "exp",
-            "sqrt": "n2",
-            "n2": "sqrt"
-        }
-        token_from_name = {t.name: i for i, t in enumerate(self.tokens)}
-        self.inverse_tokens = {token_from_name[k]: token_from_name[v] for k, v in inverse_tokens.items() if
-                               k in token_from_name and v in token_from_name}
         # Dec 23: size used for embedding of action, parent and sibling.
         self.n_action_inputs = self.L + 1  # Library tokens + empty token
         self.n_parent_inputs = self.L + 1 - len(self.terminal_tokens)  # Parent sub-lib tokens + empty token
