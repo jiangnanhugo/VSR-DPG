@@ -1,10 +1,4 @@
-from abc import ABC, abstractmethod
-
 import tensorflow as tf
-
-from cvdso.program import Program
-#
-#
 
 
 def make_state_manager(config):
@@ -16,11 +10,11 @@ def make_state_manager(config):
 
     Returns
     -------
-    state_manager : StateManager
-        The StateManager to be used by the Controller.
+    state_manager : InputEmbeddingManager
+        The StateManager to be used by the expression decoder.
     """
     manager_dict = {
-        "hierarchical": StateManager
+        "hierarchical": InputEmbeddingManager
     }
 
     if config is None:
@@ -35,7 +29,7 @@ def make_state_manager(config):
     return state_manager
 
 
-class StateManager(object):
+class InputEmbeddingManager(object):
     """
     Class that uses the previous action, parent, sibling, and/or dangling as
     observations.
@@ -43,7 +37,7 @@ class StateManager(object):
 
     def __init__(self, observe_parent=True, observe_sibling=True,
                  observe_action=False, observe_dangling=False, embedding=False,
-                 embedding_size=8):
+                 embedding_dim=8):
         """
         Parameters
         ----------
@@ -51,21 +45,23 @@ class StateManager(object):
         observe_sibling : bool. Observe the sibling of the Token being selected?
         observe_action : bool.  Observe the previously selected Token?
         observe_dangling : bool. Observe the number of dangling nodes?
-        embedding : bool.  Use embeddings for categorical inputs?
-        embedding_size : int. Size of embeddings for each categorical input if embedding=True.
+        embedding : bool.  Use dense embeddings for one-hot categorical inputs?
+        embedding_dim : int. Size of embeddings for each categorical input if embedding=True.
         """
         self.observe_parent = observe_parent
         self.observe_sibling = observe_sibling
         self.observe_action = observe_action
         self.observe_dangling = observe_dangling
-        self.library = Program.library
+        # self.library = Program.library
 
         # Parameter assertions/warnings
         assert self.observe_action + self.observe_parent + self.observe_sibling + self.observe_dangling > 0, \
             "Must include at least one observation."
-
+        # either one-hot or dense vector
         self.embedding = embedding
-        self.embedding_size = embedding_size
+        self.embedding_size = embedding_dim
+
+        self.n_action_inputs, self.n_parent_inputs, self.n_sibling_inputs = 1, 1, 1
 
     def setup_manager(self, expression_decoder):
         """
@@ -76,22 +72,20 @@ class StateManager(object):
         self.max_length = expression_decoder.max_length
         # Create embeddings if needed
         if self.embedding:
-            initializer = tf.compat.v1.random_uniform_initializer(minval=-1.0,
-                                                        maxval=1.0,
-                                                        seed=0)
+            initializer = tf.compat.v1.random_uniform_initializer(minval=-1.0, maxval=1.0, seed=0)
             with tf.compat.v1.variable_scope("embeddings", initializer=initializer):
                 if self.observe_action:
                     self.action_embeddings = tf.compat.v1.get_variable("action_embeddings",
-                                                             [self.library.n_action_inputs, self.embedding_size],
-                                                             trainable=True)
+                                                                       [self.n_action_inputs, self.embedding_size],
+                                                                       trainable=True)
                 if self.observe_parent:
                     self.parent_embeddings = tf.compat.v1.get_variable("parent_embeddings",
-                                                             [self.library.n_parent_inputs, self.embedding_size],
-                                                             trainable=True)
+                                                                       [self.n_parent_inputs, self.embedding_size],
+                                                                       trainable=True)
                 if self.observe_sibling:
                     self.sibling_embeddings = tf.compat.v1.get_variable("sibling_embeddings",
-                                                              [self.library.n_sibling_inputs, self.embedding_size],
-                                                              trainable=True)
+                                                                        [self.n_sibling_inputs, self.embedding_size],
+                                                                        trainable=True)
 
     def get_tensor_input(self, obs):
         observations = []
@@ -107,26 +101,25 @@ class StateManager(object):
             if self.embedding:
                 x = tf.nn.embedding_lookup(self.action_embeddings, action)
             else:
-                x = tf.one_hot(action, depth=self.library.n_action_inputs)
+                x = tf.one_hot(action, depth=self.n_action_inputs)
             observations.append(x)
         if self.observe_parent:
             if self.embedding:
                 x = tf.nn.embedding_lookup(self.parent_embeddings, parent)
             else:
-                x = tf.one_hot(parent, depth=self.library.n_parent_inputs)
+                x = tf.one_hot(parent, depth=self.n_parent_inputs)
             observations.append(x)
         if self.observe_sibling:
             if self.embedding:
                 x = tf.nn.embedding_lookup(self.sibling_embeddings, sibling)
             else:
-                x = tf.one_hot(sibling, depth=self.library.n_sibling_inputs)
+                x = tf.one_hot(sibling, depth=self.n_sibling_inputs)
             observations.append(x)
 
         # Dangling input is just the value of dangling
         if self.observe_dangling:
             x = tf.expand_dims(dangling, axis=-1)
             observations.append(x)
-
-        input_ = tf.concat(observations, -1)
-        return input_
-
+        # concatenate all the input vectors togethers.
+        input_vector = tf.concat(observations, -1)
+        return input_vector

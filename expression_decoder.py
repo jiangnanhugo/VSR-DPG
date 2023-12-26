@@ -3,10 +3,10 @@
 import tensorflow as tf
 import numpy as np
 
-# from cvdso.symbolic_expression.program import Program
-from cvdso.grammar.grammar import ContextFreeGrammar
+from cvdso.grammar.grammar import ContextSensitiveGrammar
 from cvdso.memory import Batch
-from cvdso.symbolic_expression.prior import LengthConstraint
+
+
 
 
 class LinearWrapper:
@@ -51,26 +51,29 @@ class ExpressionDecoder(object):
     max_length : int.  Maximum sequence length.
     """
 
-    def __init__(self, sess, state_manager, debug=0, summary=False,
+    def __init__(self, sess,
+                 # grammar
+                 cfg: ContextSensitiveGrammar,
+                 state_manager,
                  # RNN cell hyperparameters
-                 cell='lstm',  # cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
-                 num_layers=1,  # Number of RNN layers.
-                 num_units=32,  # Number of RNN cell units in each of the RNN's layers.
-                 initializer='zeros',
+                 cell: str = 'lstm',  # cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
+                 num_layers: int = 1,  # Number of RNN layers.
+                 num_units: int = 32,  # Number of RNN cell units in each of the RNN's layers.
+                 initializer: str = 'zeros',
                  # Optimizer hyperparameters
-                 optimizer='adam',
-                 learning_rate=0.001,
+                 optimizer: str = 'adam',
+                 learning_rate: float = 0.001,
                  # Loss hyperparameters
                  entropy_weight=0.005,  # Coefficient for entropy bonus.
                  entropy_gamma=1.0,  # Gamma in entropy decay.
                  # PQT hyperparameters
-                 pqt=False,  # Train with priority queue training (PQT)?
+                 pqt: bool = False,  # Train with priority queue training (PQT)?
                  pqt_k=10,  # Size of priority queue.
                  pqt_batch_size=1,  # Size of batch to sample (with replacement) from priority queue.
                  pqt_weight=200.0,  # Coefficient for PQT loss function.
                  pqt_use_pg=False,  # Use policy gradient loss when using PQT?
                  # Other hyperparameters
-                 max_length=30):
+                 debug=0, summary=False, max_length=30):
 
         self.sess = sess
         self.summary = summary
@@ -83,15 +86,13 @@ class ExpressionDecoder(object):
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
 
-        decoder_output_vocab_size = len(ContextFreeGrammar.grammars)
+        decoder_output_vocab_size = len(cfg.output_vocab_size)
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.compat.v1.placeholder(dtype=tf.int32, shape=(), name="batch_size")
         self.baseline = tf.compat.v1.placeholder(dtype=tf.float32, shape=(), name="baseline")
 
         # Entropy decay vector
-        if entropy_gamma is None:
-            entropy_gamma = 1.0
         entropy_gamma_decay = np.array([entropy_gamma ** t for t in range(max_length)])
 
         # Build controller RNN
@@ -104,8 +105,7 @@ class ExpressionDecoder(object):
             cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell([make_cell(cell, n, initializer=initializer) for n in num_units])
             cell = LinearWrapper(cell=cell, output_size=decoder_output_vocab_size)
 
-            task = Program.task
-            initial_obs = task.reset_task()
+            initial_obs = cfg.initial_obs()
             state_manager.setup_manager(self)
             initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)])  # (?, obs_dim)
 
@@ -141,11 +141,11 @@ class ExpressionDecoder(object):
                     actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
 
                     # Compute obs and prior
-                    next_obs = tf.compat.v1.py_func(func=task.get_next_obs,
+                    next_obs = tf.compat.v1.py_func(func=cfg.get_next_obs,
                                                     inp=[actions, obs],
                                                     Tout=[tf.float32, tf.float32])
 
-                    next_obs.set_shape([None, task.OBS_DIM])
+                    next_obs.set_shape([None, cfg.OBS_DIM])
                     next_obs = state_manager.process_state(next_obs)
                     next_input = state_manager.get_tensor_input(next_obs)
                     next_obs_ta = obs_ta.write(time - 1, obs)  # Write OLD obs
@@ -177,7 +177,7 @@ class ExpressionDecoder(object):
             with tf.compat.v1.name_scope(name):
                 batch_ph = {
                     "actions": tf.compat.v1.placeholder(tf.int32, [None, max_length]),
-                    "obs": tf.compat.v1.placeholder(tf.float32, [None, task.OBS_DIM, self.max_length]),
+                    "obs": tf.compat.v1.placeholder(tf.float32, [None, cfg.OBS_DIM, self.max_length]),
                     "lengths": tf.compat.v1.placeholder(tf.int32, [None, ]),
                     "rewards": tf.compat.v1.placeholder(tf.float32, [None], name="r"),
                     "on_policy": tf.compat.v1.placeholder(tf.int32, [None, ])

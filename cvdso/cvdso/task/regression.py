@@ -2,69 +2,6 @@
 
 import numpy as np
 
-# from cvdso.program import Program
-# from cvdso.library import Library
-# from cvdso.functions import create_tokens
-from cvdso.subroutines import parents_siblings
-
-
-class Task(object):
-    """
-    A Task in which the search space is a binary tree. Observations include
-    the previous action, the parent, the sibling, and/or the number of dangling
-    (unselected) nodes.
-    """
-
-    OBS_DIM = 4  # action, parent, sibling, dangling
-
-    def __init__(self):
-        pass
-
-    def get_next_obs(self, actions, obs):
-        dangling = obs[:, 3]  # Shape of obs: (?, 4)
-        action = actions[:, -1]  # Current action
-        lib = self.library
-
-        # Compute parents and siblings
-        parent, sibling = parents_siblings(actions,
-                                           arities=lib.arities,
-                                           parent_adjust=lib.parent_adjust,
-                                           empty_parent=lib.EMPTY_PARENT,
-                                           empty_sibling=lib.EMPTY_SIBLING)
-
-        # Update dangling with (arity - 1) for each element in action
-        dangling += lib.arities[action] - 1
-
-        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
-        next_obs = next_obs.astype(np.float32)
-        return next_obs
-
-    def reset_task(self):
-        """
-        Returns the initial observation: empty action, parent, and sibling, and
-        dangling is 1.
-        """
-
-        # Order of observations: action, parent, sibling, dangling
-        initial_obs = np.array([self.library.EMPTY_ACTION,
-                                self.library.EMPTY_PARENT,
-                                self.library.EMPTY_SIBLING, 1],
-                               dtype=np.float32)
-        return initial_obs
-
-
-def set_task(function_set, allowed_input, dataX, data_query_oracle, config_task):
-    """Helper function to make set the Program class Task and execute function
-    from task config."""
-
-    # Use of protected functions is the same for all tasks, so it's handled separately
-    protected = config_task["protected"] if "protected" in config_task else False
-
-    Program.set_execute(protected)
-    print(config_task)
-    task = RegressionTask(function_set,allowed_input, dataX, data_query_oracle, **config_task)
-
-    Program.set_task(task)
 
 
 class RegressionTask(Task):

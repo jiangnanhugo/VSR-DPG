@@ -1,5 +1,4 @@
-"""Class for symbolic expression object or program."""
-import copy
+"""Class for symbolic expression optimization."""
 
 import numpy as np
 import warnings
@@ -14,39 +13,57 @@ from scipy.optimize import minimize
 from scipy.optimize import basinhopping, shgo, dual_annealing
 
 from cvdso.grammar.grammar_utils import pretty_print_expr
+from cvdso.grammar.production_rules import production_rules_to_expr
+
+
+class SymbolicExpression(object):
+    def __init__(self, list_of_rules):
+        self.traversal = ';'.join(list_of_rules)
+        self.expr_template = production_rules_to_expr(list_of_rules)
+        self.reward = None
+        self.originally_on_policy = 1
+        self.fitted_eq = None
 
 
 class grammarProgram(object):
-    # Static variables
-    expr_obj_thres = 1e-6  # expression objective threshold
-    expr_consts_thres = 1e-3
+    """
+    used for optimizing the constants in the expressions.
+    """
     evalaute_loss = None
 
-    def __init__(self, n_vars, optimizer="BFGS"):
+    def __init__(self, optimizer="BFGS", max_opt_iter=100, max_open_constants=20):
         """
         opt_num_expr:  # number of experiments done for optimization
         vf: indicator vector for free variables. vf[i]=1 for xi is a free variable
+        max_open_constants: the maximum number of allowed open constants in the expression.
         """
-        self.vf = [0, ] * n_vars
 
-        self.n_vars = n_vars
-        optimizer = optimizer
-
-        self.optimized_constants = []
-        self.optimized_obj = []
+        self.optimizer = optimizer
+        # store the list of historical fitted expressions.
         self.cache = {}
+        self.max_opt_iter = max_opt_iter
+        self.max_open_constants = max_open_constants
 
-    def set_vf(self, xi: int):
-        """set of free variables"""
+    def construct_new_expression(self, list_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
+        """
+        here we assume the input will be a valid expression
+        """
+        one_expr = SymbolicExpression(list_of_rules)
+        if one_expr.traversal in self.cache:
+            return self.cache[one_expr.traversal]
+        reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
+                                                len(one_expr.traversal.split(";")),
+                                                dataX,
+                                                y_true,
+                                                input_var_Xs)
 
-        if 0 <= xi < len(self.vf):
-            self.vf[xi] = 1
-            print('xi is:', xi, ', new vf is:', self.vf)
+        one_expr.reward = reward
+        one_expr.fitted_eq = fitted_eq
+        self.cache[one_expr.traversal] = one_expr
+        return one_expr
 
-    def get_vf(self):
-        return self.vf
 
-    def optimize(self, eq, tree_size: int, data_X, y_true, input_var_Xs, eta=0.9999, max_opt_iter=1000, verbose=False):
+    def optimize(self, eq, tree_size: int, data_X, y_true, input_var_Xs, eta=0.9999, verbose=False):
         """
         Calculate reward score for a complete parse tree
         If placeholder C is in the equation, also execute estimation for C
@@ -70,6 +87,7 @@ class grammarProgram(object):
         num_changing_consts = eq.count('C')
         t_optimized_constants, t_optimized_obj = 0, np.inf
         if num_changing_consts == 0:  # zero constant
+            var_ytrue = np.var(y_true)
             y_pred = execute(eq, data_X.T, input_var_Xs)
         elif num_changing_consts >= 20:  # discourage over complicated numerical estimations
             return -np.inf, eq, t_optimized_constants, t_optimized_obj
@@ -93,7 +111,7 @@ class grammarProgram(object):
             # do more than one experiment,
             x0 = np.random.rand(len(c_lst))
             try:
-                opt_result=scipy_minimize(f, x0, self.optimizer, num_changing_consts, max_opt_iter)
+                opt_result = scipy_minimize(f, x0, self.optimizer, num_changing_consts, self.max_opt_iter)
                 t_optimized_constants = opt_result['x']
                 c_lst = t_optimized_constants.tolist()
                 t_optimized_obj = opt_result['fun']
@@ -160,10 +178,9 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
 
 
 def scipy_minimize(f, x0, optimizer, num_changing_consts, max_opt_iter):
-    # optimize the constants in the expression
+    # optimize the open constants in the expression
     if optimizer == 'Nelder-Mead':
         opt_result = minimize(f, x0, method='Nelder-Mead', options={'xatol': 1e-10, 'fatol': 1e-10, 'maxiter': max_opt_iter})
-
     elif optimizer == 'BFGS':
         opt_result = minimize(f, x0, method='BFGS', options={'maxiter': max_opt_iter})
     elif optimizer == 'CG':
@@ -194,35 +211,21 @@ def scipy_minimize(f, x0, optimizer, num_changing_consts, max_opt_iter):
     #     bounds = list(zip(lw, up))
     #     opt_result = direct(f, bounds, maxiter=max_opt_iter)
 
-
     return opt_result
 
 
-#
-# def execute_eval(expr_str: str, data_X: np.ndarray, input_var_Xs, simulated_steps: int, dt: float):
-#     """
-#     evaluate the output of expression with the given input.
-#     consts: list of constants.
-#     """
-#     try:
-#         y_hat = eval(expr_str)
-#     except TypeError as e:
-#         print(e)
-#
-#     return y_hat
-
-
 def simplify_template(eq):
-    orig = eq
     for i in range(10):
         eq = eq.replace('(C+C)', 'C')
+        eq = eq.replace('(C-C)', 'C')
+        eq = eq.replace('C*C', 'C')
+        eq = eq.replace('(/C', 'C')
         eq = eq.replace('sqrt(C)', 'C')
+        eq = eq.replace('exp(C)', 'C')
+        eq = eq.replace('log(C)', 'C')
         eq = eq.replace('sin(C)', 'C')
         eq = eq.replace('cos(C)', 'C')
         eq = eq.replace('(1/C)', 'C')
-        eq = eq.replace('(C-C)', 'C')
-        eq = eq.replace('C*C', 'C')
-        eq = eq.replace('(C/C)', 'C')
     return eq
 
 

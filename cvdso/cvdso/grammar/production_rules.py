@@ -35,20 +35,6 @@ def to_binary_expr_tree(expr):
             return [op.__name__, left, right]
 
 
-class grammarLibrary(object):
-    def __init__(self, nvars, list_of_production_rules):
-        self.nvars=nvars
-        self.grammars=list_of_production_rules
-        self.allowed_grammar=np.ones(len(self.grammars))
-
-    def print_grammar_library(self):
-        print('============== GRAMMAR LIBRARY ==============')
-        print('{0: >8} {1: >10} {2: >8}'.format('ID', 'NAME',  'ALLOWED'))
-        for i in range(self.nvars):
-            print('{} {}'.format(i, self.grammars[i][i], self.allowed_grammar[i]))
-        print('========== END OF GRAMMAR LIBRARY ===========')
-
-
 def get_production_rules(nvars, operators_set, non_terminal_node='A'):
     """
     nvars: number of input variables.
@@ -139,6 +125,21 @@ def get_sincos_vars_rules(nvars: int, non_terminal_node='A') -> list:
         rules += get_ith_sincos_rules(i, non_terminal_node)
     return rules
 
+# get extra rules:
+
+def get_var_i_production_rules(round_idx, operators_set):
+    grammars = get_ith_var_rules(round_idx)
+    if 'inv' in operators_set:
+        grammars += get_ith_inv_rules(round_idx, non_terminal_node='A')
+    if 'n2' in operators_set:
+        grammars += get_ith_n2_rules(round_idx)
+    if 'n3' in operators_set:
+        grammars += get_ith_n3_rules(round_idx)
+    if 'n4' in operators_set:
+        grammars += get_ith_n4_rules(round_idx)
+    if 'n5' in operators_set:
+        grammars += get_ith_n5_rules(round_idx)
+    return grammars
 
 def get_ith_sincos_rules(i: int, non_terminal_node='A') -> list:
     # [A->C*sin(Xi), A->C*cos(Xi)]
@@ -173,6 +174,7 @@ def get_ith_n5_rules(xi: int, non_terminal_node='A') -> list:
 def get_ith_inv_rules(xi: int, non_terminal_node='A') -> list:
     # [A-> C/Xi]
     return [f'{non_terminal_node}->C/X{xi}']
+
 
 
 if __name__ == '__main__':

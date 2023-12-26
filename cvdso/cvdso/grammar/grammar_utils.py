@@ -13,8 +13,6 @@ def pretty_print_expr(eq) -> str:
     return str(expand(simplify(eq)))
 
 
-
-
 def nth_repl(s, sub, repl, n):
     find = s.find(sub)
     # If find is not -1 we have found at least one match for the substring
@@ -28,11 +26,6 @@ def nth_repl(s, sub, repl, n):
     if i == n:
         return s[:find] + repl + s[find + len(sub):]
     return s
-
-
-def create_reward_threshold(highest_threhold, nvar, ratio=0.95):
-    return [highest_threhold * ratio ** i for i in range(nvar)]
-
 
 
 def expression_to_template(expr, stand_alone_constants) -> str:

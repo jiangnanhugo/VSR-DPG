@@ -1,10 +1,10 @@
 import numpy as np
 
-from cvdso.program import from_tokens
+
 from cvdso.utils import weighted_quantile
 
 
-def quantile_variance(memory_queue, controller, batch_size, epsilon, step,
+def quantile_variance(memory_queue, neural_expression_decoder,grammar_model, batch_size, epsilon, step,
                       n_experiments=1000, estimate_bias=True,
                       n_samples_bias=1e6):
 
@@ -18,14 +18,14 @@ def quantile_variance(memory_queue, controller, batch_size, epsilon, step,
     memory_r = memory_queue.get_rewards()
     memory_w = memory_queue.compute_probs()
     for exp in range(n_experiments):
-        actions, obs, priors = controller.sample(batch_size)
-        programs = [from_tokens(a) for a in actions]
-        r = np.array([p.r for p in programs])
+        actions, obs = neural_expression_decoder.sample(batch_size)
+        grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
+        r = np.array([p.r for p in grammar_expressions])
         quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
         empirical_quantiles.append(quantile)
-        unique_programs = [p for p in programs if p.str not in memory_queue.unique_items]
-        N = len(unique_programs)
-        sample_r = [p.r for p in unique_programs]
+        unique_expressions = [p for p in grammar_expressions if p.str not in memory_queue.unique_items]
+        N = len(unique_expressions)
+        sample_r = [p.r for p in unique_expressions]
         combined_r = np.concatenate([memory_r, sample_r])
         if N == 0:
             print("WARNING: Found no unique samples in batch!")
@@ -47,9 +47,9 @@ def quantile_variance(memory_queue, controller, batch_size, epsilon, step,
     print("Mean(Memory augmented quantile):", np.mean(memory_augmented_quantiles))
     print("Var(Memory augmented quantile):", np.var(memory_augmented_quantiles))
     if estimate_bias:
-        actions, obs, priors = controller.sample(int(n_samples_bias))
-        programs = [from_tokens(a) for a in actions]
-        r = np.array([p.r for p in programs])
+        actions, obs = neural_expression_decoder.sample(int(n_samples_bias))
+        grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
+        r = np.array([p.r for p in grammar_expressions])
         true_quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
         print("'True' empirical quantile:", true_quantile)
         print("Empirical quantile bias:", np.mean(np.abs(empirical_quantiles - true_quantile)))

@@ -1,93 +1,147 @@
 import copy
-import sys
 import numpy as np
 from sympy import Symbol
 from sympy.parsing.sympy_parser import parse_expr
-from production_rules import production_rules_to_expr
-from cvdso.grammar_program import execute
-from cvdso.grammar_utils import pretty_print_expr, expression_to_template, nth_repl
 
+from cvdso.grammar.grammar_program import execute
+from cvdso.grammar.grammar_utils import pretty_print_expr, expression_to_template, nth_repl
+from cvdso.subroutines import parents_siblings
 
-class ContextFreeGrammar(object):
-    """
-    hall_of_fame: ranked good expressions.
-    """
-    task = None  # Task
+class ContextSensitiveGrammar(object):
+    # will link to regression_task
+    task = None
+    # will link to grammarProgram
     program = None
-    # constants
-    opt_num_expr = 1  # number of experiments done for optimization
+    # threshold for deciding constants as summary or standalone constant
+    opt_num_expriments = 5  # number of experiments done for multi-trail control variable experiments
     expr_obj_thres = 1e-6
     expr_consts_thres = 1e-3
 
     noise_std = 0.0
+    """
+        hall_of_fame: ranked good expressions.
+    """
+
+    """
+       A Task in which the search space is a binary tree. Observations include
+       the previous action, the parent, the sibling, and/or the number of dangling
+       (unselected) nodes.
+       """
+
+    OBS_DIM = 4  # action, parent, sibling, dangling
 
     def __init__(self, base_grammars, aug_grammars,
                  non_terminal_nodes, aug_nt_nodes,
-                 max_len, max_module,
-                 aug_grammars_allowed, max_opt_iter=500):
+                 max_length, eta,
+                 hof_size):
         # number of input variables
         self.nvars = self.task.data_query_oracle.get_nvars()
+        # input variable symbols
         self.input_var_Xs = [Symbol('X' + str(i)) for i in range(self.nvars)]
-        self.base_grammars = base_grammars
-        self.aug_grammars = aug_grammars
         self.grammars = base_grammars + [x for x in aug_grammars if x not in base_grammars]
+
         self.aug_nt_nodes = aug_nt_nodes
         self.non_terminal_nodes = non_terminal_nodes
-        self.max_len = max_len
-        self.max_module = max_module
-        self.max_aug = aug_grammars_allowed
+        self.max_length = max_length
+        self.hof_size = hof_size
         self.hall_of_fame = []
-        self.eta = 0.99
-        self.max_opt_iter = max_opt_iter
+        self.eta = eta
+        self.allowed_grammar = np.ones(len(self.grammars), dtype=bool)
+        self.terminal_rules = [g for g in self.grammars if sum([nt in g for nt in self.non_terminal_nodes]) == 0]
+        # used for output vocabulary
+        self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
+        self.n_parent_inputs = self.output_vocab_size + 1 - len(self.terminal_rules)  # Parent sub-lib tokens + empty token
+        self.n_sibling_inputs = self.output_vocab_size + 1  # Library tokens + empty token
+        self.EMPTY_ACTION = self.n_action_inputs - 1
+        self.EMPTY_PARENT = self.n_parent_inputs - 1
+        self.EMPTY_SIBLING = self.n_sibling_inputs - 1
+
+    def get_next_obs(self, actions, obs):
+        dangling = obs[:, 3]  # Shape of obs: (?, 4)
+        action = actions[:, -1]  # Current action
+        # Compute parents and siblings
+        parent, sibling = parents_siblings(actions,
+                                           arities=1,
+                                           parent_adjust=1,
+                                           empty_parent=self.EMPTY_PARENT,
+                                           empty_sibling=self.EMPTY_SIBLING)
+
+        # Update dangling with (arity - 1) for each element in action
+
+        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
+        next_obs = next_obs.astype(np.float32)
+        return next_obs
+
+    def initial_obs(self):
+        """
+        Returns the initial observation: empty action, parent, and sibling, and
+        dangling is 1.
+        """
+
+        # Order of observations: action, parent, sibling, dangling
+        initial_obs = np.array([self.EMPTY_ACTION,
+                                self.EMPTY_PARENT,
+                                self.EMPTY_SIBLING,
+                                1],
+                               dtype=np.float32)
+        return initial_obs
+
+    def allowed_grammar_indices(self, vc: set) -> list:
+        """
+        return the list of indices for all grammars that do not have the rules for controlled variables.
+        :param vc: the set of controlled variables
+        """
+        filtered_grammars = []
+        for idx, g in enumerate(self.grammars):
+            if sum([vi in g for vi in vc]) == 0:
+                filtered_grammars.append(idx)
+        return filtered_grammars
+
+    @property
+    def output_vocab_size(self):
+        return len(self.grammars)
+
+    def print_grammar_vocabulary(self):
+        print('============== GRAMMAR Vocabulary ==============')
+        print('{0: >8} {1: >10} {2: >8}'.format('ID', 'NAME', 'ALLOWED'))
+        for i in range(self.nvars):
+            print('{} {}'.format(i, self.grammars[i][i], self.allowed_grammar[i]))
+        print('========== END OF GRAMMAR Vocabulary ===========')
 
     def valid_production_rules(self, Node):
         # Get index of all possible production rules starting with a given node
         return [self.grammars.index(x) for x in self.grammars if x.startswith(Node)]
 
-    def valid_non_terminal_production_rules(self, Node):
-        # Get index of all possible production rules starting with a given node
-        valid_rules = []
-        for i, x in enumerate(self.grammars):
-            if x.startswith(Node) and np.sum([y in x[3:] for y in self.non_terminal_nodes]):
-                valid_rules.append(i)
-        return valid_rules
-        # return [self.grammars.index(x) for x in self.grammars if x.startswith(Node) ]
-
     def get_non_terminal_nodes(self, prod) -> list:
         # Get all the non-terminal nodes from right-hand side of a production rule grammar
         return [i for i in prod[3:] if i in self.non_terminal_nodes]
 
-    def step(self, state, action_idx, ntn):
+    def complete_rules(self, list_of_rules):
         """
-        state:      all production rules
-        action_idx: index of grammar starts from the current Non-terminal Node
-        tree:       the current tree
-        ntn:        all remaining non-terminal nodes
-
-        This defines one step of Parse Tree traversal
-        return tree (next state), remaining non-terminal nodes, reward, and if it is done
+        complete all non-terminal tokens in rules.
         """
-        action = self.grammars[action_idx]
-        state = state + ',' + action
-        ntn = self.get_non_terminal_nodes(action) + ntn
 
-        if not ntn:
-            self.task.rand_draw_data_with_X_fixed()
-            y_true = self.task.evaluate()
-            expr_template = production_rules_to_expr(state.split(','))
-            reward, eq, _, _ = self.program.optimize(expr_template,
-                                                     len(state.split(',')),
-                                                     self.task.X,
-                                                     y_true,
-                                                     self.input_var_Xs,
-                                                     max_opt_iter=self.max_opt_iter)
+        ntn_counts = 0
+        for one_rule in list_of_rules:
+            ntn_counts += len(self.get_non_terminal_nodes(one_rule)) - 1
+        if ntn_counts <= 0:
+            return list_of_rules
+        print(f"trying to complete all non-terminal in {list_of_rules} ==>", end="\t")
 
-            return state, ntn, reward, True, eq
-        else:
-            return state, ntn, 0, False, None
+        for _ in range(ntn_counts):
+            list_of_rules.append(np.random.choice(self.terminal_rules))
+        print(list_of_rules)
+        return list_of_rules
 
-    def freeze_equations(self, list_of_grammars, opt_num_expr, stand_alone_constants, next_free_variable):
-        # decide summary constants and stand alone constants.
+    def construct_expression(self, list_of_rules):
+        one_list_of_rules = self.complete_rules(list_of_rules)
+        one_expression = self.program.construct_new_expression(one_list_of_rules)
+        return one_expression
+
+    def freeze_equations(self, list_of_grammars, stand_alone_constants, next_free_variable):
+        """
+        in the proposed control variable experiment, we need to decide summary constants and stand alone constants.
+        """
         print("---------Freeze Equation----------")
         freezed_exprs = []
         aug_nt_nodes = []
@@ -98,12 +152,12 @@ class ContextFreeGrammar(object):
         optimized_obj = []
         expr_template = expression_to_template(parse_expr(expr), stand_alone_constants)
         print('expr template is"', expr_template)
-        for _ in range(opt_num_expr):
+        for _ in range(self.opt_num_expriments):
             self.task.rand_draw_X_fixed()
             self.task.rand_draw_data_with_X_fixed()
             y_true = self.task.evaluate()
             _, eq, opt_consts, opt_obj = self.program.optimize(expr_template,
-                                                               len(state.split(',')),
+                                                               len(state.split(';')),
                                                                self.task.X,
                                                                y_true,
                                                                self.input_var_Xs,
@@ -140,11 +194,11 @@ class ContextFreeGrammar(object):
                 # optimized_constants = []
                 optimized_cond_obj = []
                 print('expr template is"', new_expr_template)
-                for _ in range(opt_num_expr * 3):
+                for _ in range(self.opt_num_expriments * 3):
                     self.task.rand_draw_X_fixed_with_index(next_free_variable)
                     y_true = self.task.evaluate()
                     _, eq, opt_consts, opt_obj = self.program.optimize(new_expr_template,
-                                                                       len(state.split(',')),
+                                                                       len(state.split(';')),
                                                                        self.task.X,
                                                                        y_true,
                                                                        self.input_var_Xs,
@@ -240,59 +294,17 @@ class ContextFreeGrammar(object):
                 ret_aug_nt_nodes.append(y)
         return ret_frezze_exprs, ret_aug_nt_nodes, new_stand_alone_constants
 
-    def rollout(self, num_play, state_initial, ntn_initial):
-        """
-        Perform `num_play` simulation, get the maximum reward
-        """
-        best_eq = ''
-        reward = -100
-        next_state = None
-        eq = ''
-        best_r = -100
-        idx = 0
-        while idx < num_play:
-            done = False
-            state = state_initial
-            ntn = ntn_initial
-
-            while not done:
-                valid_index = self.valid_production_rules(ntn[0])
-                action = np.random.choice(valid_index)
-                next_state, ntn_next, reward, done, eq = self.step(state, action, ntn[1:])
-                state = next_state
-                ntn = ntn_next
-
-                if state.count(',') >= self.max_len:  # tree depth shall be less than max_len
-                    break
-
-            if done:
-                idx += 1
-                if reward > best_r:
-                    # save the current expression into hall-of-fame
-                    self.update_hall_of_fame(next_state, reward, eq)
-                    best_eq = eq
-                    best_r = reward
-
-        return best_r, best_eq
-
-
-
     def update_hall_of_fame(self, state, reward, eq):
-        """
-        If we pass by a concise solution with high score, we store it as an
-        single action for future use.
-        """
         module = state
-        if state.count(',') <= self.max_module:
+        if state.count(';') <= self.max_length:
             if not self.hall_of_fame:
                 self.hall_of_fame = [(module, reward, eq)]
             elif eq not in [x[2] for x in self.hall_of_fame]:
-                if len(self.hall_of_fame) < self.max_aug:
+                if len(self.hall_of_fame) < self.hof_size:
                     self.hall_of_fame = sorted(self.hall_of_fame + [(module, reward, eq)], key=lambda x: x[1])
                 else:
                     if reward > self.hall_of_fame[0][1]:
                         self.hall_of_fame = sorted(self.hall_of_fame[1:] + [(module, reward, eq)], key=lambda x: x[1])
-
 
     def print_hofs(self, flag, verbose=False):
         if flag == -1:

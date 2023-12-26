@@ -230,6 +230,9 @@ def load_config(config=None):
     # Return combined configs
     return safe_merge_dicts(base_config, user_config)
 
+def create_reward_threshold(highest_threhold, nvar, ratio=0.95):
+    return [highest_threhold * ratio ** i for i in range(nvar)]
+
 
 
 def create_geometric_generations(n_generations, nvar, ratio=1.2):

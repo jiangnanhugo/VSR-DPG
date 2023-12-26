@@ -7,7 +7,6 @@ from itertools import compress
 import tensorflow as tf
 import numpy as np
 
-from cvdso.symbolic_expression.program import Program, from_tokens
 from cvdso.utils import empirical_entropy, weighted_quantile
 from cvdso.memory import Batch, make_queue
 from cvdso.variance import quantile_variance
@@ -17,7 +16,7 @@ from cvdso.train_stats import StatsLogger
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 #
-from cvdso.grammar.production_rules import production_rules_to_expr
+# from cvdso.grammar.production_rules import production_rules_to_expr
 
 
 
@@ -111,8 +110,9 @@ def work(p):
 
     Return : dict. A dict describing the best-fit expression (determined by reward).
     """
-def learn(sess, expression_decoder, pool, output_file,
-          n_epochs=12, n_samples=None, batch_size=1000, complexity="token",
+def learn(grammar_model,
+          sess, expression_decoder, pool, output_file,
+          n_epochs=12, dataset_size=None, batch_size=1000,
           alpha=0.5, epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
           save_all_epoch=False, baseline="R_e",
           b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
@@ -122,7 +122,7 @@ def learn(sess, expression_decoder, pool, output_file,
           save_cache_r_min=0.9, save_freq=None, save_token_count=False):
 
     # Config assertions and warnings
-    print(n_samples, n_epochs)
+    print(dataset_size, n_epochs)
     # assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
 
     # Initialize compute graph
@@ -146,15 +146,13 @@ def learn(sess, expression_decoder, pool, output_file,
         actions, obs = expression_decoder.sample(warm_start)
         print("sampled actions:", actions)
         # construct program based on the input token indices
-        grammar_programs = [production_rules_to_expr(a) for a in actions]
-        programs = [from_tokens(a) for a in actions]
-        grammar_r=np.array([gp.r for gp in grammar_programs])
-        r = np.array([p.r for p in programs])
-        l = np.array([len(p.traversal) for p in programs])
-        on_policy = np.array([p.originally_on_policy for p in programs])
+        grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
+        rewards = np.array([p.r for p in grammar_expressions])
+        expr_lengths = np.array([len(p.traversal.split(";")) for p in grammar_expressions])
+        on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
         sampled_batch = Batch(actions=actions, obs=obs,
-                              lengths=l, rewards=r, on_policy=on_policy)
-        memory_queue.push_batch(sampled_batch, programs)
+                              lengths=expr_lengths, rewards=rewards, on_policy=on_policy)
+        memory_queue.push_batch(sampled_batch, grammar_expressions)
     else:
         memory_queue = None
 
@@ -169,7 +167,7 @@ def learn(sess, expression_decoder, pool, output_file,
     r_best = -np.inf
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
-    n_epochs = n_epochs if n_epochs is not None else int(n_samples / batch_size)
+    n_epochs = n_epochs if n_epochs is not None else int(dataset_size / batch_size)
     nevals = 0  # Total number of sampled expressions (from RL)
     print("max epochs", n_epochs)
     positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
@@ -186,43 +184,42 @@ def learn(sess, expression_decoder, pool, output_file,
 
     for epoch in range(n_epochs):
         # Set of str representations for all Programs ever seen
-        s_history = set(Program.cache.keys())
+        s_history = set(grammar_model.program.cache.keys())
 
-        # Sample batch of Programs from the expression_decoder
+        # Sample batch of expressions from the expression_decoder
         # Shape of actions: (batch_size, max_length)
         # Shape of obs: [(batch_size, max_length)] * 3
         actions, obs = expression_decoder.sample(batch_size)
         # if verbose:
         #     print("sampled actions:", actions)
-        grammar_programs = [production_rules_to_expr(a) for a in actions]
-        programs = [from_tokens(a) for a in actions]
+        grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
         nevals += batch_size
 
         # Compute rewards in parallel
         if pool is not None:
             # Filter programs that need reward computing
-            programs_to_optimize = list(set([p for p in programs if "r" not in p.__dict__]))
+            programs_to_optimize = list(set([p for p in grammar_expressions if "r" not in p.__dict__]))
             pool_p_dict = {p.str: p for p in pool.map(work, programs_to_optimize)}
-            programs = [pool_p_dict[p.str] if "r" not in p.__dict__ else p for p in programs]
+            programs = [pool_p_dict[p.str] if "r" not in p.__dict__ else p for p in grammar_expressions]
             # Make sure to update cache with new programs
-            Program.cache.update(pool_p_dict)
+            grammar_model.program.cache.update(pool_p_dict)
 
         # Compute rewards (or retrieve cached rewards)
-        r = np.array([p.r for p in programs])
+        r = np.array([p.r for p in grammar_expressions])
         # if verbose:
         #     print("rewards:", r)
         r_train = r
 
         # Back up programs to save them properly later
-        controller_programs = programs.copy() if save_token_count else None
+        controller_programs = grammar_expressions.copy() if save_token_count else None
 
         # Need for Vanilla Policy Gradient (epsilon = null)
-        p_train = programs
+        p_train = grammar_expressions
 
-        l = np.array([len(p.traversal) for p in programs])
-        s = [p.str for p in programs]  # Str representations of Programs
-        on_policy = np.array([p.originally_on_policy for p in programs])
-        invalid = np.array([p.invalid for p in programs], dtype=bool)
+        expr_lengths = np.array([len(p.traversal) for p in grammar_expressions])
+        s = [str(p.expr_template) for p in grammar_expressions]  # Str representations of Programs
+        on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
+        invalid = np.array([p.invalid for p in grammar_expressions], dtype=bool)
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -230,19 +227,19 @@ def learn(sess, expression_decoder, pool, output_file,
         if save_top_samples_per_batch > 0:
             # sort in descending order: larger rewards -> better solutions
             sorted_idx = np.argsort(r)[::-1]
-            one_perc = int(len(programs) * float(save_top_samples_per_batch))
+            one_perc = int(len(grammar_expressions) * float(save_top_samples_per_batch))
             for idx in sorted_idx[:one_perc]:
-                top_samples_per_batch.append([epoch, r[idx], repr(programs[idx])])
+                top_samples_per_batch.append([epoch, r[idx], repr(grammar_expressions[idx])])
 
         if eval_all:
-            success = [p.evaluate.get("success") for p in programs]
+            success = [p.evaluate.get("success") for p in grammar_expressions]
             # Check for success before risk-seeking, but don't break until after
             if any(success):
-                p_final = programs[success.index(True)]
+                p_final = grammar_expressions[success.index(True)]
 
         # Update reward history
         if r_history is not None:
-            for p in programs:
+            for p in grammar_expressions:
                 key = p.str
                 if key in r_history:
                     r_history[key].append(p.r)
@@ -251,7 +248,7 @@ def learn(sess, expression_decoder, pool, output_file,
 
         # Store in variables the values for the whole batch (those variables will be modified below)
         r_full = r
-        l_full = l
+        l_full = expr_lengths
         s_full = s
         actions_full = actions
         invalid_full = invalid
@@ -266,7 +263,7 @@ def learn(sess, expression_decoder, pool, output_file,
             # Compute reward quantile estimate
             if use_memory:  # Memory-augmented quantile
                 # Get subset of Programs not in buffer
-                unique_programs = [p for p in programs \
+                unique_programs = [p for p in grammar_expressions \
                                    if p.str not in memory_queue.unique_items]
                 N = len(unique_programs)
 
@@ -307,12 +304,12 @@ def learn(sess, expression_decoder, pool, output_file,
             '''
 
             keep = r >= quantile
-            l = l[keep]
+            expr_lengths = expr_lengths[keep]
             s = list(compress(s, keep))
             invalid = invalid[keep]
 
             r_train = r = r[keep]
-            p_train = programs = list(compress(programs, keep))
+            p_train = grammar_expressions = list(compress(grammar_expressions, keep))
 
             '''
                 get the action, observation and on_policy status of all programs returned to the controller.
@@ -350,7 +347,7 @@ def learn(sess, expression_decoder, pool, output_file,
 
         # Update and sample from the priority queue
         if priority_queue is not None:
-            priority_queue.push_best(sampled_batch, programs)
+            priority_queue.push_best(sampled_batch, grammar_expressions)
             pqt_batch = priority_queue.sample_batch(expression_decoder.pqt_batch_size)
         else:
             pqt_batch = None
@@ -363,19 +360,19 @@ def learn(sess, expression_decoder, pool, output_file,
 
         # Collect sub-batch statistics and write output
         logger.save_stats(r_full, l_full, actions_full, s_full, invalid_full, r,
-                          l, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
+                          expr_lengths, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
                           s_history, b_train, epoch_walltime, controller_programs)
 
         # Update the memory queue
         if memory_queue is not None:
-            memory_queue.push_batch(sampled_batch, programs)
+            memory_queue.push_batch(sampled_batch, grammar_expressions)
 
         # Update new best expression
         new_r_best = False
 
         if prev_r_best is None or r_max > prev_r_best:
             new_r_best = True
-            p_r_best = programs[np.argmax(r)]
+            p_r_best = grammar_expressions[np.argmax(r)]
 
         prev_r_best = r_best
 
@@ -404,7 +401,7 @@ def learn(sess, expression_decoder, pool, output_file,
             print("Ending training after epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs,
                                                                                           prev_r_best))
 
-        if nevals > n_samples:
+        if nevals > dataset_size:
             break
 
 
@@ -417,7 +414,7 @@ def learn(sess, expression_decoder, pool, output_file,
     if verbose and priority_queue is not None:
         for i, item in enumerate(priority_queue.iter_in_order()):
             print("\nPriority queue entry {}:".format(i))
-            p = Program.cache[item[0]]
+            p = grammar_model.program.cache[item[0]]
             p.print_stats()
 
     # Close the pool
@@ -431,8 +428,7 @@ def learn(sess, expression_decoder, pool, output_file,
     }
     result.update(p.evaluate)
     result.update({
-        "expression": repr(p.sympy_expr),
-        "traversal": repr(p),
+        "expression": repr(p.expr_template),
         "program": p
     })
     result.update(results_add)
