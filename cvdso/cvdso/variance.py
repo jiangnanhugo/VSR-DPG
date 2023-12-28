@@ -1,13 +1,11 @@
 import numpy as np
 
-
 from cvdso.utils import weighted_quantile
 
 
-def quantile_variance(memory_queue, neural_expression_decoder,grammar_model, batch_size, epsilon, step,
+def quantile_variance(memory_queue, neural_expression_decoder, grammar_model, batch_size, epsilon, step,
                       n_experiments=1000, estimate_bias=True,
                       n_samples_bias=1e6):
-
     print("Running quantile variance/bias experiments...")
     empirical_quantiles = []
     memory_augmented_quantiles = []
@@ -29,7 +27,7 @@ def quantile_variance(memory_queue, neural_expression_decoder,grammar_model, bat
         combined_r = np.concatenate([memory_r, sample_r])
         if N == 0:
             print("WARNING: Found no unique samples in batch!")
-            combined_w = memory_w / memory_w.sum() # Renormalize
+            combined_w = memory_w / memory_w.sum()  # Renormalize
         else:
             sample_w = np.repeat((1 - memory_w.sum()) / N, N)
             combined_w = np.concatenate([memory_w, sample_w])

@@ -4,14 +4,14 @@ from numba import jit, prange
 import numpy as np
 
 
-@jit(nopython=True, parallel=True)
+# @jit(nopython=True, parallel=True)
 def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling):
     """
     Given a batch of action sequences, computes and returns the parents and
     siblings of the next element of the sequence.
 
-    The batch has shape (N, L), where N is the number of sequences (i.e. batch
-    size) and L is the length of each sequence. In some cases, expressions may
+    The batch has shape (batch_size, sequence_length), where batch_size is the number of sequences (i.e. batch
+    size) and sequence_length is the length of each sequence. In some cases, expressions may
     already be complete; in these cases, this function sees the start of a new
     expression, even though the return value for these elements won't matter
     because their gradients will be zero because of sequence_length.
@@ -19,7 +19,7 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
     Parameters
     __________
 
-    tokens : np.ndarray, shape=(N, L), dtype=np.int32
+    tokens : np.ndarray, shape=(batch_size, sequence_length), dtype=np.int32
         Batch of action sequences. Values correspond to library indices.
 
     arities : np.ndarray, dtype=np.int32
@@ -32,37 +32,25 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
         Integer value for an empty parent token. This is initially computed in expression_decoder.py.
 
     empty_sibling : int
-        Integer value for an empty sibling token. This is intially computed in expression_decoder.py
+        Integer value for an empty sibling token. This is initially computed in expression_decoder.py
 
     Returns
     _______
-
-    adj_parents : np.ndarray, shape=(N,), dtype=np.int32
+    adj_parents : np.ndarray, shape=(batch_size,), dtype=np.int32
         Adjusted parents of the next element of each action sequence.
 
-    siblings : np.ndarray, shape=(N,), dtype=np.int32
+    siblings : np.ndarray, shape=(batch_size,), dtype=np.int32
         Siblings of the next element of each action sequence.
 
     """
-    N, L = tokens.shape
+    batch_size, sequence_length = tokens.shape
 
-    adj_parents = np.full(shape=(N,), fill_value=empty_parent, dtype=np.int32)
-    siblings = np.full(shape=(N,), fill_value=empty_sibling, dtype=np.int32)
+    adj_parents = np.full(shape=(batch_size,), fill_value=empty_parent, dtype=np.int32)
+    siblings = np.full(shape=(batch_size,), fill_value=empty_sibling, dtype=np.int32)
     # Parallelized loop over action sequences
-    for r in prange(N):
-        arity = arities[tokens[r, -1]]
-        if arity > 0: # Parent is the previous element; no sibling
-            adj_parents[r] = parent_adjust[tokens[r, -1]]
-            continue
-        dangling = 0
-        # Loop over elements in an action sequence
-        for c in range(L):
-            arity = arities[tokens[r, L - c - 1]]
-            dangling += arity - 1
-            if dangling == 0: # Parent is L-c-1, sibling is the next
-                adj_parents[r] = parent_adjust[tokens[r, L - c - 1]]
-                siblings[r] = tokens[r, L - c]
-                break
+    for bi in prange(batch_size):
+        adj_parents[bi] = tokens[bi, -1]
+        siblings[bi] = tokens[bi, -1]
     return adj_parents, siblings
 
 

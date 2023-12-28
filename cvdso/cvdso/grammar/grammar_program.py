@@ -24,12 +24,15 @@ class SymbolicExpression(object):
         self.originally_on_policy = 1
         self.fitted_eq = None
 
+    def __repr__(self):
+        return f"eq_template={self.expr_template}, eq={self.fitted_eq}, r={self.reward}"
+
 
 class grammarProgram(object):
     """
     used for optimizing the constants in the expressions.
     """
-    evalaute_loss = None
+    evaluate_loss = None
 
     def __init__(self, optimizer="BFGS", max_opt_iter=100, max_open_constants=20):
         """
@@ -49,21 +52,22 @@ class grammarProgram(object):
         here we assume the input will be a valid expression
         """
         one_expr = SymbolicExpression(list_of_rules)
-        if one_expr.traversal in self.cache:
-            return self.cache[one_expr.traversal]
+
+        if one_expr.expr_template in self.cache:
+            return self.cache[one_expr.expr_template]
+        print(one_expr.expr_template)
         reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
-                                                len(one_expr.traversal.split(";")),
                                                 dataX,
                                                 y_true,
-                                                input_var_Xs)
+                                                input_var_Xs,
+                                                len(one_expr.traversal.split(";")), )
 
         one_expr.reward = reward
         one_expr.fitted_eq = fitted_eq
-        self.cache[one_expr.traversal] = one_expr
+        self.cache[one_expr.expr_template] = one_expr
         return one_expr
 
-
-    def optimize(self, eq, tree_size: int, data_X, y_true, input_var_Xs, eta=0.9999, verbose=False):
+    def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size: int, eta=0.9999, verbose=False):
         """
         Calculate reward score for a complete parse tree
         If placeholder C is in the equation, also execute estimation for C
@@ -106,7 +110,7 @@ class grammarProgram(object):
                 eq_est = eq_est.replace('+ +', '+')
                 y_pred = execute(eq_est, data_X.T, input_var_Xs)
                 var_ytrue = np.var(y_true)
-                return -self.evalaute_loss(y_pred, y_true, var_ytrue)
+                return -self.evaluate_loss(y_pred, y_true, var_ytrue)
 
             # do more than one experiment,
             x0 = np.random.rand(len(c_lst))
@@ -135,17 +139,16 @@ class grammarProgram(object):
 
                 eq = pretty_print_expr(parse_expr(eq_est))
 
-                print('\t reward',
-                      eta ** tree_size * float(-np.log10(1e-60 - self.evalaute_loss(y_pred, y_true, var_ytrue))),
-                      '\t loss:', -self.evalaute_loss(y_pred, y_true, var_ytrue),
+                print('\t loss:', -self.evaluate_loss(y_pred, y_true, var_ytrue),
                       'simp:', eq)
             except Exception as e:
                 print(e)
                 return -np.inf, eq, 0, np.inf
 
-        r = eta ** tree_size * float(-np.log10(1e-60 - self.evalaute_loss(y_pred, y_true, var_ytrue)))
+        # r = eta ** tree_size * float(-np.log10(1e-60 - self.evaluate_loss(y_pred, y_true, var_ytrue)))
+        reward = self.evaluate_loss(y_pred, y_true, var_ytrue)
 
-        return r, eq, t_optimized_constants, t_optimized_obj
+        return reward, eq, t_optimized_constants, t_optimized_obj
 
 
 def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):

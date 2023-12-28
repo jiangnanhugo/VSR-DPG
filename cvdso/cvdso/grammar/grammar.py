@@ -5,7 +5,7 @@ from sympy.parsing.sympy_parser import parse_expr
 
 from cvdso.grammar.grammar_program import execute
 from cvdso.grammar.grammar_utils import pretty_print_expr, expression_to_template, nth_repl
-from cvdso.subroutines import parents_siblings
+
 
 class ContextSensitiveGrammar(object):
     # will link to regression_task
@@ -26,16 +26,16 @@ class ContextSensitiveGrammar(object):
        A Task in which the search space is a binary tree. Observations include
        the previous action, the parent, the sibling, and/or the number of dangling
        (unselected) nodes.
-       """
+    """
 
     OBS_DIM = 4  # action, parent, sibling, dangling
 
-    def __init__(self, base_grammars, aug_grammars,
+    def __init__(self, nvars, base_grammars, aug_grammars,
                  non_terminal_nodes, aug_nt_nodes,
                  max_length, eta,
-                 hof_size):
+                 hof_size, reward_threhold):
         # number of input variables
-        self.nvars = self.task.data_query_oracle.get_nvars()
+        self.nvars = nvars
         # input variable symbols
         self.input_var_Xs = [Symbol('X' + str(i)) for i in range(self.nvars)]
         self.grammars = base_grammars + [x for x in aug_grammars if x not in base_grammars]
@@ -44,10 +44,12 @@ class ContextSensitiveGrammar(object):
         self.non_terminal_nodes = non_terminal_nodes
         self.max_length = max_length
         self.hof_size = hof_size
+        self.reward_threhold = reward_threhold
         self.hall_of_fame = []
         self.eta = eta
         self.allowed_grammar = np.ones(len(self.grammars), dtype=bool)
         self.terminal_rules = [g for g in self.grammars if sum([nt in g for nt in self.non_terminal_nodes]) == 0]
+        self.start_symbol = 'f->A'
         # used for output vocabulary
         self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
         self.n_parent_inputs = self.output_vocab_size + 1 - len(self.terminal_rules)  # Parent sub-lib tokens + empty token
@@ -56,35 +58,7 @@ class ContextSensitiveGrammar(object):
         self.EMPTY_PARENT = self.n_parent_inputs - 1
         self.EMPTY_SIBLING = self.n_sibling_inputs - 1
 
-    def get_next_obs(self, actions, obs):
-        dangling = obs[:, 3]  # Shape of obs: (?, 4)
-        action = actions[:, -1]  # Current action
-        # Compute parents and siblings
-        parent, sibling = parents_siblings(actions,
-                                           arities=1,
-                                           parent_adjust=1,
-                                           empty_parent=self.EMPTY_PARENT,
-                                           empty_sibling=self.EMPTY_SIBLING)
 
-        # Update dangling with (arity - 1) for each element in action
-
-        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
-        next_obs = next_obs.astype(np.float32)
-        return next_obs
-
-    def initial_obs(self):
-        """
-        Returns the initial observation: empty action, parent, and sibling, and
-        dangling is 1.
-        """
-
-        # Order of observations: action, parent, sibling, dangling
-        initial_obs = np.array([self.EMPTY_ACTION,
-                                self.EMPTY_PARENT,
-                                self.EMPTY_SIBLING,
-                                1],
-                               dtype=np.float32)
-        return initial_obs
 
     def allowed_grammar_indices(self, vc: set) -> list:
         """
@@ -113,29 +87,38 @@ class ContextSensitiveGrammar(object):
         return [self.grammars.index(x) for x in self.grammars if x.startswith(Node)]
 
     def get_non_terminal_nodes(self, prod) -> list:
+
         # Get all the non-terminal nodes from right-hand side of a production rule grammar
         return [i for i in prod[3:] if i in self.non_terminal_nodes]
 
     def complete_rules(self, list_of_rules):
         """
         complete all non-terminal tokens in rules.
-        """
 
+        given one sequence of rules, either cut the sequence for the position where Number_of_Non_Terminal_Symbols=0,
+        or add several rules with non only terminal symbols
+        """
         ntn_counts = 0
         for one_rule in list_of_rules:
             ntn_counts += len(self.get_non_terminal_nodes(one_rule)) - 1
-        if ntn_counts <= 0:
-            return list_of_rules
+            if ntn_counts == 0:
+                return list_of_rules
         print(f"trying to complete all non-terminal in {list_of_rules} ==>", end="\t")
 
         for _ in range(ntn_counts):
             list_of_rules.append(np.random.choice(self.terminal_rules))
-        print(list_of_rules)
+        # print(list_of_rules)
         return list_of_rules
 
     def construct_expression(self, list_of_rules):
+        list_of_rules = [self.start_symbol] + [self.grammars[li] for li in list_of_rules]
+        # print("list_of_rules:", list_of_rules)
         one_list_of_rules = self.complete_rules(list_of_rules)
-        one_expression = self.program.construct_new_expression(one_list_of_rules)
+        # print("pruned list_of_rules:", one_list_of_rules)
+        self.task.rand_draw_data_with_X_fixed()
+        y_true = self.task.evaluate()
+        one_expression = self.program.construct_new_expression(one_list_of_rules, self.task.X, y_true, self.input_var_Xs)
+
         return one_expression
 
     def freeze_equations(self, list_of_grammars, stand_alone_constants, next_free_variable):

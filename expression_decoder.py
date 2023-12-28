@@ -5,7 +5,7 @@ import numpy as np
 
 from cvdso.grammar.grammar import ContextSensitiveGrammar
 from cvdso.memory import Batch
-
+from cvdso.subroutines import parents_siblings
 
 
 
@@ -39,7 +39,7 @@ class LinearWrapper:
         return self.cell.zero_state(batch_size, dtype)
 
 
-class ExpressionDecoder(object):
+class NeuralExpressionDecoder(object):
     """
     Recurrent neural network (RNN) used to generate expressions. Specifically, the RNN outputs a distribution over the production rules
     of symbolic expression. It is trained using REINFORCE with baseline.
@@ -51,9 +51,9 @@ class ExpressionDecoder(object):
     max_length : int.  Maximum sequence length.
     """
 
-    def __init__(self, sess,
-                 # grammar
+    def __init__(self, # grammar
                  cfg: ContextSensitiveGrammar,
+                 sess,
                  state_manager,
                  # RNN cell hyperparameters
                  cell: str = 'lstm',  # cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
@@ -85,8 +85,8 @@ class ExpressionDecoder(object):
         self.pqt = pqt
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
-
-        decoder_output_vocab_size = len(cfg.output_vocab_size)
+        self.cfg=cfg
+        decoder_output_vocab_size = cfg.output_vocab_size
 
         # Placeholders, computed after instantiating expressions
         self.batch_size = tf.compat.v1.placeholder(dtype=tf.int32, shape=(), name="batch_size")
@@ -105,7 +105,7 @@ class ExpressionDecoder(object):
             cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell([make_cell(cell, n, initializer=initializer) for n in num_units])
             cell = LinearWrapper(cell=cell, output_size=decoder_output_vocab_size)
 
-            initial_obs = cfg.initial_obs()
+            initial_obs = self.initial_obs()
             state_manager.setup_manager(self)
             initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)])  # (?, obs_dim)
 
@@ -135,18 +135,19 @@ class ExpressionDecoder(object):
                     logits = cell_output
                     next_cell_state = cell_state
                     emit_output = logits
+                    # sample from the categorical distribution
                     action = tf.random.categorical(logits=logits, num_samples=1, dtype=tf.int32, seed=1)[:, 0]
-                    next_actions_ta = actions_ta.write(time - 1, action)  # Write chosen actions
+                    # Write chosen actions
+                    next_actions_ta = actions_ta.write(time - 1, action)
                     # Get current action batch
                     actions = tf.transpose(next_actions_ta.stack())  # Shape: (?, time)
 
-                    # Compute obs and prior
-                    next_obs = tf.compat.v1.py_func(func=cfg.get_next_obs,
+                    # Compute obs
+                    next_obs = tf.compat.v1.py_func(func=self.get_next_obs,
                                                     inp=[actions, obs],
-                                                    Tout=[tf.float32, tf.float32])
+                                                    Tout=tf.float32)
 
-                    next_obs.set_shape([None, cfg.OBS_DIM])
-                    next_obs = state_manager.process_state(next_obs)
+                    next_obs.set_shape([None, self.cfg.OBS_DIM])
                     next_input = state_manager.get_tensor_input(next_obs)
                     next_obs_ta = obs_ta.write(time - 1, obs)  # Write OLD obs
                     finished = next_finished = tf.logical_or(
@@ -167,7 +168,7 @@ class ExpressionDecoder(object):
             # Returns RNN emit outputs TensorArray (i.e. logits), final cell state, and final loop state
             with tf.compat.v1.variable_scope('policy'):
                 _, _, loop_state = tf.compat.v1.nn.raw_rnn(cell=cell, loop_fn=loop_fn)
-                actions_ta, obs_ta, _, _, _, _ = loop_state
+                actions_ta, obs_ta, _, _, _ = loop_state
 
             self.actions = tf.transpose(actions_ta.stack(), perm=[1, 0])  # (?, max_length)
             self.obs = tf.transpose(obs_ta.stack(), perm=[1, 2, 0])  # (?, obs_dim, max_length)
@@ -232,6 +233,7 @@ class ExpressionDecoder(object):
         self.memory_logps = -memory_neglogp
 
         # PQT batch
+        pqt_loss = None
         if pqt:
             self.pqt_batch_ph = make_batch_ph("pqt_batch")
 
@@ -280,6 +282,39 @@ class ExpressionDecoder(object):
             print("Total parameters:", total_parameters)
 
         self.create_summaries(pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r)
+
+    def get_next_obs(self, actions, obs):
+        print(f"actions: {actions.shape} obs: {obs.shape}")
+        print("actions: ", actions[-1, :])
+        print("obs: ", obs[-1, :])
+        dangling = obs[:, 3]  # Shape of obs: (?, 4)
+        action = actions[:, -1]  # Current action
+        # Compute parents and siblings
+        parent, sibling = parents_siblings(actions,
+                                           arities=1,
+                                           parent_adjust=1,
+                                           empty_parent=self.cfg.EMPTY_PARENT,
+                                           empty_sibling=self.cfg.EMPTY_SIBLING)
+
+        # Update dangling with (arity - 1) for each element in action
+
+        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
+        next_obs = next_obs.astype(np.float32)
+        return next_obs
+
+    def initial_obs(self):
+        """
+        Returns the initial observation: empty action, parent, and sibling, and
+        dangling is 1.
+        """
+
+        # Order of observations: action, parent, sibling, dangling
+        initial_obs = np.array([self.cfg.EMPTY_ACTION,
+                                self.cfg.EMPTY_PARENT,
+                                self.cfg.EMPTY_SIBLING,
+                                1],
+                               dtype=np.float32)
+        return initial_obs
 
     def create_summaries(self, pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r):
         # Create summaries

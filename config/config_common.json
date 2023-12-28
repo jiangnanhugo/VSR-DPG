@@ -1,0 +1,85 @@
+{
+   // Hyperparameters related to the main training loop.
+   "training" : {
+      // These parameters control the length of the run.
+      "n_epochs": 100,
+      // dataset size is used to fitting open constants
+      "dataset_size":15000,
+      // used for sampling expressions from the neural decoder
+      "batch_size" : 1000,
+
+      // To use the risk-seeking policy gradient, set epsilon < 1.0 and
+      // baseline="R_e"
+      "epsilon" : 0.05,
+      "baseline" : "R_e",
+
+      // Control variate parameters for vanilla policy gradient. If risk-seeking
+      // is used, these have no effect.
+      "alpha" : 0.5,
+      "b_jumpstart" : false,
+
+      // The constant optimizer used to optimized each "const" token.
+      "verbose" : true,
+
+      // Debug level
+      "debug" : 0,
+
+      // Whether to stop early if success condition is met
+      "early_stopping" : true,
+
+      // EXPERIMENTAL: Hyperparameters related to utilizing a memory buffer.
+      "use_memory" : false,
+      "memory_capacity" : 1e3,
+      "warm_start" : null,
+      "memory_threshold" : null,
+
+      // Parameters to control what outputs to save.
+      "save_positional_entropy" : false,
+      "save_token_count" : false
+   },
+   // The State Manager defines the inputs to the Controller
+   "state_manager": {
+         // Observation hyperparameters
+         "observe_action" : false,
+         "observe_parent" : true,
+         "observe_sibling" : true,
+         "observe_dangling" : false,
+         "embedding" : false,
+         "embedding_dim" : 8
+   },
+   // Hyperparameters related to the RNN distribution over objects.
+   "expression_decoder" : {
+      // Maximum sequence length.
+      "max_length" : 256,
+
+      // RNN architectural hyperparameters.
+      "cell" : "lstm",
+      "num_layers" : 1,
+      "num_units" : 32,
+      "initializer" : "zeros",
+
+      // Optimizer hyperparameters.
+      "learning_rate" : 0.001,
+      "optimizer" : "adam",
+
+      // Entropy regularizer hyperparameters.
+      "entropy_weight" : 0.005,
+      "entropy_gamma" : 1.0,
+
+      // EXPERIMENTAL: Priority queue training hyperparameters.
+      "pqt" : false,
+      "pqt_k" : 10,
+      "pqt_batch_size" : 1,
+      "pqt_weight" : 200.0,
+      "pqt_use_pg" : false,
+
+      // Whether to compute TensorBoard summaries.
+      "summary" : false
+   },
+
+   // Postprocessing hyperparameters.
+   "postprocess" : {
+      "show_count" : 5,
+      "save_plots" : true
+   }
+}

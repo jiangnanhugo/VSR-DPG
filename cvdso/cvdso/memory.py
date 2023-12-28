@@ -10,12 +10,12 @@ Batch = namedtuple(
     "Batch", ["actions", "obs", "lengths", "rewards", "on_policy"])
 
 
-def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
+def make_queue(expression_decoder=None, priority=False, capacity=np.inf, seed=0):
     """Factory function for various Queues.
 
     Parameters
     ----------
-    controller : dso.controller.Controller
+    expression_decoder : dso.controller.Controller
         Reference to the Controller, used to compute probabilities of items in
         the Queue.
 
@@ -41,11 +41,11 @@ def make_queue(controller=None, priority=False, capacity=np.inf, seed=0):
         Base = UniqueQueue
 
     class ProgramQueue(ProgramQueueMixin, Base):
-        def __init__(self, controller, capacity, seed):
-            ProgramQueueMixin.__init__(self, controller)
+        def __init__(self, expression_decoder, capacity, seed):
+            ProgramQueueMixin.__init__(self, expression_decoder)
             Base.__init__(self, capacity, seed)
 
-    queue = ProgramQueue(controller, capacity, seed)
+    queue = ProgramQueue(expression_decoder, capacity, seed)
     return queue
 
 
@@ -67,7 +67,6 @@ def get_samples(batch, key):
     batch = Batch(
         actions=batch.actions[key],
         obs=batch.obs[key],
-
         lengths=batch.lengths[key],
         rewards=batch.rewards[key],
         on_policy=batch.on_policy[key])
@@ -194,7 +193,7 @@ class UniqueQueue(Queue):
             return ()
         score, item, extra_data = self.heap.pop(0)
         self.unique_items.remove(item)
-        return (score, item, extra_data)
+        return score, item, extra_data
 
 
 # Adapted from https://github.com/tensorflow/models/blob/1af55e018eebce03fb61bba9959a04672536107d/research/brain_coder/common/utils.py
@@ -297,7 +296,7 @@ class ProgramQueueMixin():
             Program corresponding to the sample.
         """
 
-        id_ = program.str
+        id_ = program.traversal
         score = sample.rewards
         self.push(score, id_, sample)
 

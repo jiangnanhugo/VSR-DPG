@@ -10,14 +10,14 @@ import numpy as np
 from cvdso.utils import empirical_entropy, weighted_quantile
 from cvdso.memory import Batch, make_queue
 from cvdso.variance import quantile_variance
-from cvdso.train_stats import StatsLogger
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+
 #
 # from cvdso.grammar.production_rules import production_rules_to_expr
-
 
 
 # Work for multiprocessing pool: compute reward
@@ -25,6 +25,7 @@ def work(p):
     """Compute reward and return it with optimized constants"""
     r = p.r
     return p
+
 
 """
     Executes the main training loop.
@@ -48,9 +49,6 @@ def work(p):
     alpha : float, optional.  Coefficient of exponentially-weighted moving average of baseline.
     epsilon : float or None, optional.  Fraction of top expressions used for training. None (or equivalently, 1.0) turns off risk-seeking.
 
-    n_cores_batch : int, optional
-        Number of cores to spread out over the batch for constant optimization
-        and evaluating reward. If -1, uses multiprocessing.cpu_count().
 
     verbose : bool, optional. Whether to print progress.
     save_summary : bool, optional. Whether to write TensorFlow summaries.
@@ -71,7 +69,6 @@ def work(p):
         iteration. If False, the EWMA starts at 0.0.
 
     early_stopping : bool, optional. Whether to stop early if stopping criteria is reached.
-
     hof : int or None, optional. If not None, number of top Programs to evaluate after training.
 
     eval_all : bool, optional
@@ -80,13 +77,8 @@ def work(p):
         If False, only the top Program is evaluated each iteration.
 
     save_pareto_front : bool, optional. If True, compute and save the Pareto front at the end of training.
-
-    debug : int, optional
-        Debug level, also passed to Controller. 0: No debug. 1: Print initial
-        parameter means. 2: Print parameter means each step.
-
+    debug : int. Debug level, also passed to Controller. 0: No debug. 1: Print initial parameter means. 2: Print parameter means each step.
     use_memory : bool, optional. If True, use memory queue for reward quantile estimation.
-
     memory_capacity : int. Capacity of memory queue.
 
     warm_start : int or None
@@ -110,21 +102,17 @@ def work(p):
 
     Return : dict. A dict describing the best-fit expression (determined by reward).
     """
+
+
 def learn(grammar_model,
-          sess, expression_decoder, pool, output_file,
+          sess, expression_decoder, pool=None,
           n_epochs=12, dataset_size=None, batch_size=1000,
-          alpha=0.5, epsilon=0.05, n_cores_batch=1, verbose=True, save_summary=False,
-          save_all_epoch=False, baseline="R_e",
-          b_jumpstart=False, early_stopping=True, hof=100, eval_all=False,
-          save_pareto_front=True, debug=0, use_memory=False, memory_capacity=1e3,
+          alpha=0.5, epsilon=0.05, verbose=True, baseline="R_e",
+          b_jumpstart=False, early_stopping=True, eval_all=False,
+          debug=0, use_memory=False, memory_capacity=1e3,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          save_top_samples_per_batch=0, save_cache=False,
-          save_cache_r_min=0.9, save_freq=None, save_token_count=False):
-
-    # Config assertions and warnings
+          save_top_samples_per_batch=0, save_token_count=False):
     print(dataset_size, n_epochs)
-    # assert n_samples is None or n_epochs is None, "At least one of 'n_samples' or 'n_epochs' must be None."
-
     # Initialize compute graph
     sess.run(tf.compat.v1.global_variables_initializer())
 
@@ -137,8 +125,8 @@ def learn(grammar_model,
 
     # Create the memory queue
     if use_memory:
-        assert epsilon is not None and epsilon < 1.0,  "Memory queue is only used with risk-seeking."
-        memory_queue = make_queue(controller=expression_decoder, priority=False,
+        assert epsilon is not None and epsilon < 1.0, "Memory queue is only used with risk-seeking."
+        memory_queue = make_queue(expression_decoder=expression_decoder, priority=False,
                                   capacity=int(memory_capacity))
 
         # Warm start the queue
@@ -167,16 +155,10 @@ def learn(grammar_model,
     r_best = -np.inf
     prev_r_best = None
     ewma = None if b_jumpstart else 0.0  # EWMA portion of baseline
-    n_epochs = n_epochs if n_epochs is not None else int(dataset_size / batch_size)
     nevals = 0  # Total number of sampled expressions (from RL)
-    print("max epochs", n_epochs)
     positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
-
-    logger = StatsLogger(sess, output_file, save_summary, save_all_epoch, hof, save_pareto_front,
-                         save_positional_entropy, save_top_samples_per_batch, save_cache,
-                         save_cache_r_min, save_freq, save_token_count)
 
     start_time = time.time()
     if verbose:
@@ -194,18 +176,8 @@ def learn(grammar_model,
         #     print("sampled actions:", actions)
         grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
         nevals += batch_size
-
-        # Compute rewards in parallel
-        if pool is not None:
-            # Filter programs that need reward computing
-            programs_to_optimize = list(set([p for p in grammar_expressions if "r" not in p.__dict__]))
-            pool_p_dict = {p.str: p for p in pool.map(work, programs_to_optimize)}
-            programs = [pool_p_dict[p.str] if "r" not in p.__dict__ else p for p in grammar_expressions]
-            # Make sure to update cache with new programs
-            grammar_model.program.cache.update(pool_p_dict)
-
         # Compute rewards (or retrieve cached rewards)
-        r = np.array([p.r for p in grammar_expressions])
+        r = np.array([p.reward for p in grammar_expressions])
         # if verbose:
         #     print("rewards:", r)
         r_train = r
@@ -240,11 +212,11 @@ def learn(grammar_model,
         # Update reward history
         if r_history is not None:
             for p in grammar_expressions:
-                key = p.str
+                key = p.traversal
                 if key in r_history:
-                    r_history[key].append(p.r)
+                    r_history[key].append(p.reward)
                 else:
-                    r_history[key] = [p.r]
+                    r_history[key] = [p.reward]
 
         # Store in variables the values for the whole batch (those variables will be modified below)
         r_full = r
@@ -264,7 +236,7 @@ def learn(grammar_model,
             if use_memory:  # Memory-augmented quantile
                 # Get subset of Programs not in buffer
                 unique_programs = [p for p in grammar_expressions \
-                                   if p.str not in memory_queue.unique_items]
+                                   if p.traversal not in memory_queue.unique_items]
                 N = len(unique_programs)
 
                 # Get rewards
@@ -359,9 +331,9 @@ def learn(grammar_model,
         epoch_walltime = time.time() - start_time
 
         # Collect sub-batch statistics and write output
-        logger.save_stats(r_full, l_full, actions_full, s_full, invalid_full, r,
-                          expr_lengths, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
-                          s_history, b_train, epoch_walltime, controller_programs)
+        print(r_full, l_full, actions_full, s_full, invalid_full, r,
+              expr_lengths, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
+              s_history, b_train, epoch_walltime, controller_programs)
 
         # Update the memory queue
         if memory_queue is not None:
@@ -399,16 +371,15 @@ def learn(grammar_model,
 
         if verbose and (epoch + 1) == n_epochs:
             print("Ending training after epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs,
-                                                                                          prev_r_best))
+                                                                                     prev_r_best))
 
         if nevals > dataset_size:
             break
 
-
-
-
     # Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
-    results_add = logger.save_results(positional_entropy, top_samples_per_batch, r_history, pool, epoch, nevals)
+    print(grammar_model.program.cache,
+          positional_entropy,
+          top_samples_per_batch, r_history, epoch, nevals)
 
     # Print the priority queue at the end of training
     if verbose and priority_queue is not None:
@@ -417,9 +388,6 @@ def learn(grammar_model,
             p = grammar_model.program.cache[item[0]]
             p.print_stats()
 
-    # Close the pool
-    if pool is not None:
-        pool.close()
 
     # Return statistics of best Program
     p = p_final if p_final is not None else p_r_best
@@ -431,10 +399,7 @@ def learn(grammar_model,
         "expression": repr(p.expr_template),
         "program": p
     })
-    result.update(results_add)
-
-    if verbose:
-        print("-- EVALUATION END ------------------")
+    print(result)
     return result
 
 

@@ -13,18 +13,11 @@ def make_state_manager(config):
     state_manager : InputEmbeddingManager
         The StateManager to be used by the expression decoder.
     """
-    manager_dict = {
-        "hierarchical": InputEmbeddingManager
-    }
 
     if config is None:
         config = {}
 
-    # Use HierarchicalStateManager by default
-    manager_type = config.pop("type", "hierarchical")
-
-    manager_class = manager_dict[manager_type]
-    state_manager = manager_class(**config)
+    state_manager = InputEmbeddingManager(**config)
 
     return state_manager
 

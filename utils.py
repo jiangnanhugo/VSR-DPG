@@ -215,6 +215,7 @@ def get_base_config():
 
 def load_config(config=None):
     # Load user config
+    print("user config file:",config)
     if isinstance(config, str):
         with open(config, encoding='utf-8') as f:
             user_config = json.load(f)

@@ -21,10 +21,12 @@ class RegressTask(object):
         self.data_query_oracle = data_query_oracle
         #
         self.n_vars = n_vars
+        # set of free variables
         self.vf = [0, ] * n_vars
         self.fixed_column = []
         self.protected = protected
         self.X_fixed = self.rand_draw_X_fixed()
+        print(f"X_fixed: {self.X_fixed}")
 
     def set_vf(self, xi: int):
         """set of xi to be free variable
@@ -62,12 +64,23 @@ class RegressTask(object):
 
     def rand_draw_data_with_X_fixed(self):
         self.X = self.dataX.randn(sample_size=self.dataset_size).T
-        if len(self.fixed_column):
+        if self.X_fixed is None:
+            self.rand_draw_X_fixed()
+        if len(self.fixed_column) > 0:
             self.X[:, self.fixed_column] = self.X_fixed[self.fixed_column]
 
     def evaluate(self):
         return self.data_query_oracle.evaluate(self.X)
 
-    def reward_function(self, p):
-        y_hat = p.execute(self.X)
+    def print_reward_function_all_metrics(self, y_hat):
+        """used for print the error for all metrics between the predicted y and true program."""
+        # y_hat = p.execute(self.X)
+        dict_of_result = self.data_query_oracle._evaluate_all_losses(self.X, y_hat)
+        print('-' * 30)
+        for mertic_name in dict_of_result:
+            print(f"{mertic_name} {dict_of_result[mertic_name]}")
+        print('-' * 30)
+
+    def reward_function(self, y_hat):
+
         return self.data_query_oracle._evaluate_loss(self.X, y_hat)
