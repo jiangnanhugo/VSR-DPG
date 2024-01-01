@@ -37,9 +37,9 @@ def train_cvdso(config, config_filename, grammar_model):
 @click.option('--metric_name', default='inv_nrmse', type=str, help="evaluation metrics")
 @click.option('--noise_type', default='normal', type=str, help="")
 @click.option('--noise_scale', default=0.0, type=float, help="")
-@click.option('--n_cores_task', default=1, help="Number of cores to spread out across tasks")
+@click.option('--max_len', default=20, help="max length of the sequence from the decoder")
 @click.option('--num_per_rounds', default=20, help="Number of iterations per rounds")
-def main(config_template, optimizer, equation_name, metric_name, noise_type, noise_scale, n_cores_task, num_per_rounds=30):
+def main(config_template, optimizer, equation_name, metric_name, noise_type, noise_scale, max_len, num_per_rounds):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
     config = load_config(config_template)
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name=metric_name)
@@ -63,10 +63,10 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     reward_thresh = create_reward_threshold(10, len(num_iterations))
     nt_nodes = ['A']
     eta = 0.999
-    max_len = 100
     aug_grammars, aug_nt_nodes = [], []
 
     # Start training
+    stand_alone_constants = []
     # Farm out the work
     for round_idx in range(len(num_iterations)):
         print('++++++++++++ ROUND {}  ++++++++++++'.format(round_idx))
@@ -78,7 +78,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         print("aug ntn nodes:", aug_nt_nodes)
         grammar_model = ContextSensitiveGrammar(
             nvars=nvar,
-            base_grammars=production_rules,
+            base_rules=production_rules,
             aug_grammars=aug_grammars,
             non_terminal_nodes=nt_nodes,
             aug_nt_nodes=aug_nt_nodes,
@@ -91,15 +91,21 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         grammar_model.program = program
         grammar_model.task.set_vf(round_idx)
         grammar_model.task.set_allowed_inputs(grammar_model.task.get_vf())
-        if n_cores_task > 1:
-            pool = multiprocessing.Pool(n_cores_task)
-            for i, (result, used_time) in enumerate(
-                    pool.imap_unordered(train_cvdso, config_template, grammar_model)):
-                print("cvDSO time {:.0f} s".format(i + 1, used_time))
-        else:
-            result, used_time = train_cvdso(config, config_template, grammar_model)
+        best_expressions, used_time = train_cvdso(config, config_template, grammar_model)
 
-            print("cvDSO time {:.0f} s".format(used_time))
+        print("cvDSO time {:.0f} s".format(used_time))
+        print(f"best expression is:", best_expressions[-1])
+        if round_idx < len(num_iterations) - 1:
+            # the last round does not need freeze
+            aug_grammars, aug_nt_nodes, stand_alone_constants = grammar_model.freeze_equations(best_expressions,
+                                                                                               stand_alone_constants,
+                                                                                               round_idx + 1)
+
+            print("AUG grammars")
+            print(aug_grammars)
+
+            production_rules = [gi for gi in production_rules if str(round_idx) not in gi]
+            exit()
 
 
 if __name__ == "__main__":

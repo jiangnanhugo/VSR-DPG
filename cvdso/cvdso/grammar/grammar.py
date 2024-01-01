@@ -18,9 +18,6 @@ class ContextSensitiveGrammar(object):
     expr_consts_thres = 1e-3
 
     noise_std = 0.0
-    """
-        hall_of_fame: ranked good expressions.
-    """
 
     """
        A Task in which the search space is a binary tree. Observations include
@@ -30,7 +27,7 @@ class ContextSensitiveGrammar(object):
 
     OBS_DIM = 4  # action, parent, sibling, dangling
 
-    def __init__(self, nvars, base_grammars, aug_grammars,
+    def __init__(self, nvars, base_rules, aug_grammars,
                  non_terminal_nodes, aug_nt_nodes,
                  max_length, eta,
                  hof_size, reward_threhold):
@@ -38,7 +35,7 @@ class ContextSensitiveGrammar(object):
         self.nvars = nvars
         # input variable symbols
         self.input_var_Xs = [Symbol('X' + str(i)) for i in range(self.nvars)]
-        self.grammars = base_grammars + [x for x in aug_grammars if x not in base_grammars]
+        self.production_rules = base_rules + [x for x in aug_grammars if x not in base_rules]
 
         self.aug_nt_nodes = aug_nt_nodes
         self.non_terminal_nodes = non_terminal_nodes
@@ -47,9 +44,10 @@ class ContextSensitiveGrammar(object):
         self.reward_threhold = reward_threhold
         self.hall_of_fame = []
         self.eta = eta
-        self.allowed_grammar = np.ones(len(self.grammars), dtype=bool)
-        self.terminal_rules = [g for g in self.grammars if sum([nt in g for nt in self.non_terminal_nodes]) == 0]
+        self.allowed_grammar = np.ones(len(self.production_rules), dtype=bool)
+        self.terminal_rules = [g for g in self.production_rules if sum([nt in g for nt in self.non_terminal_nodes]) == 0]
         self.start_symbol = 'f->A'
+
         # used for output vocabulary
         self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
         self.n_parent_inputs = self.output_vocab_size + 1 - len(self.terminal_rules)  # Parent sub-lib tokens + empty token
@@ -58,33 +56,31 @@ class ContextSensitiveGrammar(object):
         self.EMPTY_PARENT = self.n_parent_inputs - 1
         self.EMPTY_SIBLING = self.n_sibling_inputs - 1
 
-
-
     def allowed_grammar_indices(self, vc: set) -> list:
         """
         return the list of indices for all grammars that do not have the rules for controlled variables.
         :param vc: the set of controlled variables
         """
         filtered_grammars = []
-        for idx, g in enumerate(self.grammars):
+        for idx, g in enumerate(self.production_rules):
             if sum([vi in g for vi in vc]) == 0:
                 filtered_grammars.append(idx)
         return filtered_grammars
 
     @property
     def output_vocab_size(self):
-        return len(self.grammars)
+        return len(self.production_rules)
 
     def print_grammar_vocabulary(self):
         print('============== GRAMMAR Vocabulary ==============')
         print('{0: >8} {1: >10} {2: >8}'.format('ID', 'NAME', 'ALLOWED'))
         for i in range(self.nvars):
-            print('{} {}'.format(i, self.grammars[i][i], self.allowed_grammar[i]))
+            print('{} {}'.format(i, self.production_rules[i][i], self.allowed_grammar[i]))
         print('========== END OF GRAMMAR Vocabulary ===========')
 
     def valid_production_rules(self, Node):
         # Get index of all possible production rules starting with a given node
-        return [self.grammars.index(x) for x in self.grammars if x.startswith(Node)]
+        return [self.production_rules.index(x) for x in self.production_rules if x.startswith(Node)]
 
     def get_non_terminal_nodes(self, prod) -> list:
 
@@ -111,17 +107,17 @@ class ContextSensitiveGrammar(object):
         return list_of_rules
 
     def construct_expression(self, list_of_rules):
-        list_of_rules = [self.start_symbol] + [self.grammars[li] for li in list_of_rules]
+        list_of_rules = [self.start_symbol] + [self.production_rules[li] for li in list_of_rules]
         # print("list_of_rules:", list_of_rules)
         one_list_of_rules = self.complete_rules(list_of_rules)
         # print("pruned list_of_rules:", one_list_of_rules)
         self.task.rand_draw_data_with_X_fixed()
         y_true = self.task.evaluate()
-        one_expression = self.program.construct_new_expression(one_list_of_rules, self.task.X, y_true, self.input_var_Xs)
+        one_expression = self.program.fitting_new_expression(one_list_of_rules, self.task.X, y_true, self.input_var_Xs)
 
         return one_expression
 
-    def freeze_equations(self, list_of_grammars, stand_alone_constants, next_free_variable):
+    def freeze_equations(self, best_expressions, stand_alone_constants, next_free_variable):
         """
         in the proposed control variable experiment, we need to decide summary constants and stand alone constants.
         """
@@ -130,22 +126,20 @@ class ContextSensitiveGrammar(object):
         aug_nt_nodes = []
         new_stand_alone_constants = stand_alone_constants
         # only use the best
-        state, _, expr = list_of_grammars[-1]
+        fitted_expr = best_expressions[-1].fitted_eq
         optimized_constants = []
         optimized_obj = []
-        expr_template = expression_to_template(parse_expr(expr), stand_alone_constants)
+        expr_template = expression_to_template(parse_expr(fitted_expr), stand_alone_constants)
         print('expr template is"', expr_template)
         for _ in range(self.opt_num_expriments):
             self.task.rand_draw_X_fixed()
             self.task.rand_draw_data_with_X_fixed()
             y_true = self.task.evaluate()
             _, eq, opt_consts, opt_obj = self.program.optimize(expr_template,
-                                                               len(state.split(';')),
                                                                self.task.X,
                                                                y_true,
                                                                self.input_var_Xs,
-                                                               eta=self.eta,
-                                                               max_opt_iter=1000)
+                                                               user_scpeficied_iters=1000)
             ##
             optimized_constants.append(opt_consts)
             optimized_obj.append(opt_obj)
@@ -181,11 +175,9 @@ class ContextSensitiveGrammar(object):
                     self.task.rand_draw_X_fixed_with_index(next_free_variable)
                     y_true = self.task.evaluate()
                     _, eq, opt_consts, opt_obj = self.program.optimize(new_expr_template,
-                                                                       len(state.split(';')),
                                                                        self.task.X,
                                                                        y_true,
                                                                        self.input_var_Xs,
-                                                                       eta=self.eta,
                                                                        max_opt_iter=1000)
                     ##
                     # optimized_constants.append(opt_consts)
@@ -229,8 +221,8 @@ class ContextSensitiveGrammar(object):
             return freezed_exprs, aug_nt_nodes, new_stand_alone_constants
 
         print("No available expression is found....trying to add the current best guessed...")
-        state, _, expr = list_of_grammars[-1]
-        expr_template = expression_to_template(parse_expr(expr), stand_alone_constants)
+        fitted_expr = best_expressions[-1].fitted_eq
+        expr_template = expression_to_template(parse_expr(fitted_expr), stand_alone_constants)
         cidx = 0
         new_expr_template = 'B->'
         for ti in expr_template:

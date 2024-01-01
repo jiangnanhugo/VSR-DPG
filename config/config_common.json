@@ -50,7 +50,7 @@
    // Hyperparameters related to the RNN distribution over objects.
    "expression_decoder" : {
       // Maximum sequence length.
-      "max_length" : 256,
+      "max_length" : 20,
 
       // RNN architectural hyperparameters.
       "cell" : "lstm",

@@ -23,6 +23,7 @@ class SymbolicExpression(object):
         self.reward = None
         self.originally_on_policy = 1
         self.fitted_eq = None
+        self.invalid = False
 
     def __repr__(self):
         return f"eq_template={self.expr_template}, eq={self.fitted_eq}, r={self.reward}"
@@ -47,7 +48,7 @@ class grammarProgram(object):
         self.max_opt_iter = max_opt_iter
         self.max_open_constants = max_open_constants
 
-    def construct_new_expression(self, list_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
+    def fitting_new_expression(self, list_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
         """
         here we assume the input will be a valid expression
         """
@@ -55,19 +56,19 @@ class grammarProgram(object):
 
         if one_expr.expr_template in self.cache:
             return self.cache[one_expr.expr_template]
-        print(one_expr.expr_template)
+        # print(one_expr.expr_template)
         reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
                                                 dataX,
                                                 y_true,
                                                 input_var_Xs,
-                                                len(one_expr.traversal.split(";")), )
+                                                len(one_expr.traversal.split(";")))
 
         one_expr.reward = reward
         one_expr.fitted_eq = fitted_eq
         self.cache[one_expr.expr_template] = one_expr
         return one_expr
 
-    def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size: int, eta=0.9999, verbose=False):
+    def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size: int, eta=0.9999, user_scpeficied_iters=-1, verbose=False):
         """
         Calculate reward score for a complete parse tree
         If placeholder C is in the equation, also execute estimation for C
@@ -85,6 +86,8 @@ class grammarProgram(object):
         eq: discovered equations with estimated numerical values.
         """
         eq = simplify_template(eq)
+        print(f"expr template: {eq}")
+        print(data_X.shape, '\n', data_X[:4, :])
         if 'A' in eq or 'B' in eq:  # not a valid equation
             return -np.inf, eq, 0, 0
         # count number of constants in equation
@@ -115,7 +118,10 @@ class grammarProgram(object):
             # do more than one experiment,
             x0 = np.random.rand(len(c_lst))
             try:
-                opt_result = scipy_minimize(f, x0, self.optimizer, num_changing_consts, self.max_opt_iter)
+                max_iter = self.max_opt_iter
+                if user_scpeficied_iters>0:
+                    max_iter = user_scpeficied_iters
+                opt_result = scipy_minimize(f, x0, self.optimizer, num_changing_consts, max_iter)
                 t_optimized_constants = opt_result['x']
                 c_lst = t_optimized_constants.tolist()
                 t_optimized_obj = opt_result['fun']

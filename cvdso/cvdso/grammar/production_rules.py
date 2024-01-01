@@ -129,6 +129,8 @@ def get_sincos_vars_rules(nvars: int, non_terminal_node='A') -> list:
 
 def get_var_i_production_rules(round_idx, operators_set):
     grammars = get_ith_var_rules(round_idx)
+    if 'sin' in operators_set or 'cos' in operators_set:
+        grammars += get_ith_sincos_rules(round_idx, non_terminal_node='A')
     if 'inv' in operators_set:
         grammars += get_ith_inv_rules(round_idx, non_terminal_node='A')
     if 'n2' in operators_set:

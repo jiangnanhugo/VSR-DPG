@@ -3,14 +3,6 @@
 
 import numpy as np
 
-def is_float(s):
-    """Determine whether the input variable can be cast to float."""
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
-
 
 def weighted_quantile(values, weights, q):
     """

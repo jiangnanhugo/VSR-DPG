@@ -191,7 +191,7 @@ def learn(grammar_model,
         expr_lengths = np.array([len(p.traversal) for p in grammar_expressions])
         s = [str(p.expr_template) for p in grammar_expressions]  # Str representations of Programs
         on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
-        invalid = np.array([p.invalid for p in grammar_expressions], dtype=bool)
+        invalid = np.array([(p.fitted_eq == None) for p in grammar_expressions], dtype=bool)
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -223,7 +223,6 @@ def learn(grammar_model,
         l_full = expr_lengths
         s_full = s
         actions_full = actions
-        invalid_full = invalid
         r_max = np.max(r)
         r_best = max(r_max, r_best)
 
@@ -278,7 +277,7 @@ def learn(grammar_model,
             keep = r >= quantile
             expr_lengths = expr_lengths[keep]
             s = list(compress(s, keep))
-            invalid = invalid[keep]
+
 
             r_train = r = r[keep]
             p_train = grammar_expressions = list(compress(grammar_expressions, keep))
@@ -331,8 +330,8 @@ def learn(grammar_model,
         epoch_walltime = time.time() - start_time
 
         # Collect sub-batch statistics and write output
-        print(r_full, l_full, actions_full, s_full, invalid_full, r,
-              expr_lengths, actions, s, invalid, r_best, r_max, ewma, summaries, epoch,
+        print(r_full, l_full, actions_full, s_full, r,
+              expr_lengths, actions, s, r_best, r_max, ewma, summaries, epoch,
               s_history, b_train, epoch_walltime, controller_programs)
 
         # Update the memory queue
@@ -350,15 +349,15 @@ def learn(grammar_model,
 
         # Print new best expression
         if verbose and new_r_best:
-            print(" Training epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs, prev_r_best))
+            print(" Training epoch {}/{}, current best R: {}".format(epoch + 1, n_epochs, prev_r_best))
             print("\n\t** New best")
-            p_r_best.print_stats()
+            print(p_r_best)
 
         # Stop if early stopping criteria is met
         if eval_all and any(success):
             print("Early stopping criteria met; breaking early.")
             break
-        if early_stopping and p_r_best.evaluate.get("success"):
+        if early_stopping: #and p_r_best.reward:
             print("Early stopping criteria met; breaking early.")
             break
 
@@ -389,18 +388,17 @@ def learn(grammar_model,
             p.print_stats()
 
 
-    # Return statistics of best Program
+    # Return the best expression
     p = p_final if p_final is not None else p_r_best
     result = {
-        "r": p.r,
+        "reward": p.reward,
     }
-    result.update(p.evaluate)
     result.update({
-        "expression": repr(p.expr_template),
-        "program": p
+        "expr_template": p.expr_template,
+        "expr": p.fitted_eq
     })
     print(result)
-    return result
+    return [p]
 
 
 def print_var_means(sess):
