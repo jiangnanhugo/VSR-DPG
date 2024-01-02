@@ -16,8 +16,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
-#
-# from cvdso.grammar.production_rules import production_rules_to_expr
 
 
 # Work for multiprocessing pool: compute reward
@@ -105,10 +103,10 @@ def work(p):
 
 
 def learn(grammar_model,
-          sess, expression_decoder, pool=None,
+          sess, expression_decoder,
           n_epochs=12, dataset_size=None, batch_size=1000,
           alpha=0.5, epsilon=0.05, verbose=True, baseline="R_e",
-          b_jumpstart=False, early_stopping=True, eval_all=False,
+          b_jumpstart=False, early_stopping=True,
           debug=0, use_memory=False, memory_capacity=1e3,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           save_top_samples_per_batch=0, save_token_count=False):
@@ -137,9 +135,9 @@ def learn(grammar_model,
         grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
         rewards = np.array([p.r for p in grammar_expressions])
         expr_lengths = np.array([len(p.traversal.split(";")) for p in grammar_expressions])
-        on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
+        # on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
         sampled_batch = Batch(actions=actions, obs=obs,
-                              lengths=expr_lengths, rewards=rewards, on_policy=on_policy)
+                              lengths=expr_lengths, rewards=rewards)
         memory_queue.push_batch(sampled_batch, grammar_expressions)
     else:
         memory_queue = None
@@ -166,7 +164,7 @@ def learn(grammar_model,
 
     for epoch in range(n_epochs):
         # Set of str representations for all Programs ever seen
-        s_history = set(grammar_model.program.cache.keys())
+        # s_history = set(grammar_model.program.cache.keys())
 
         # Sample batch of expressions from the expression_decoder
         # Shape of actions: (batch_size, max_length)
@@ -188,10 +186,6 @@ def learn(grammar_model,
         # Need for Vanilla Policy Gradient (epsilon = null)
         p_train = grammar_expressions
 
-        expr_lengths = np.array([len(p.traversal) for p in grammar_expressions])
-        s = [str(p.expr_template) for p in grammar_expressions]  # Str representations of Programs
-        on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
-        invalid = np.array([(p.fitted_eq == None) for p in grammar_expressions], dtype=bool)
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -203,12 +197,6 @@ def learn(grammar_model,
             for idx in sorted_idx[:one_perc]:
                 top_samples_per_batch.append([epoch, r[idx], repr(grammar_expressions[idx])])
 
-        if eval_all:
-            success = [p.evaluate.get("success") for p in grammar_expressions]
-            # Check for success before risk-seeking, but don't break until after
-            if any(success):
-                p_final = grammar_expressions[success.index(True)]
-
         # Update reward history
         if r_history is not None:
             for p in grammar_expressions:
@@ -219,10 +207,6 @@ def learn(grammar_model,
                     r_history[key] = [p.reward]
 
         # Store in variables the values for the whole batch (those variables will be modified below)
-        r_full = r
-        l_full = expr_lengths
-        s_full = s
-        actions_full = actions
         r_max = np.max(r)
         r_best = max(r_max, r_best)
 
@@ -234,8 +218,7 @@ def learn(grammar_model,
             # Compute reward quantile estimate
             if use_memory:  # Memory-augmented quantile
                 # Get subset of Programs not in buffer
-                unique_programs = [p for p in grammar_expressions \
-                                   if p.traversal not in memory_queue.unique_items]
+                unique_programs = [p for p in grammar_expressions if p.traversal not in memory_queue.unique_items]
                 N = len(unique_programs)
 
                 # Get rewards
@@ -275,19 +258,15 @@ def learn(grammar_model,
             '''
 
             keep = r >= quantile
-            expr_lengths = expr_lengths[keep]
-            s = list(compress(s, keep))
-
 
             r_train = r = r[keep]
             p_train = grammar_expressions = list(compress(grammar_expressions, keep))
 
             '''
-                get the action, observation and on_policy status of all programs returned to the controller.
+                get the action, observation status of all programs returned to the controller.
             '''
             actions = actions[keep, :]
             obs = obs[keep, :, :]
-            on_policy = on_policy[keep]
 
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
@@ -314,7 +293,7 @@ def learn(grammar_model,
 
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs,
-                              lengths=lengths, rewards=r_train, on_policy=on_policy)
+                              lengths=lengths, rewards=r_train)
 
         # Update and sample from the priority queue
         if priority_queue is not None:
@@ -330,9 +309,9 @@ def learn(grammar_model,
         epoch_walltime = time.time() - start_time
 
         # Collect sub-batch statistics and write output
-        print(r_full, l_full, actions_full, s_full, r,
-              expr_lengths, actions, s, r_best, r_max, ewma, summaries, epoch,
-              s_history, b_train, epoch_walltime, controller_programs)
+        # print(r_full, l_full, actions_full, s_full, r,
+        #       expr_lengths, actions, s, r_best, r_max, ewma, summaries, epoch,
+        #       s_history, b_train, epoch_walltime, controller_programs)
 
         # Update the memory queue
         if memory_queue is not None:
@@ -353,11 +332,8 @@ def learn(grammar_model,
             print("\n\t** New best")
             print(p_r_best)
 
-        # Stop if early stopping criteria is met
-        if eval_all and any(success):
-            print("Early stopping criteria met; breaking early.")
-            break
-        if early_stopping: #and p_r_best.reward:
+
+        if early_stopping and p_r_best.reward > 0.999:  # and :
             print("Early stopping criteria met; breaking early.")
             break
 
@@ -375,11 +351,6 @@ def learn(grammar_model,
         if nevals > dataset_size:
             break
 
-    # Save all results available only after all epochs are finished. Also return metrics to be added to the summary file
-    print(grammar_model.program.cache,
-          positional_entropy,
-          top_samples_per_batch, r_history, epoch, nevals)
-
     # Print the priority queue at the end of training
     if verbose and priority_queue is not None:
         for i, item in enumerate(priority_queue.iter_in_order()):
@@ -387,17 +358,9 @@ def learn(grammar_model,
             p = grammar_model.program.cache[item[0]]
             p.print_stats()
 
-
     # Return the best expression
     p = p_final if p_final is not None else p_r_best
-    result = {
-        "reward": p.reward,
-    }
-    result.update({
-        "expr_template": p.expr_template,
-        "expr": p.fitted_eq
-    })
-    print(result)
+    print(p)
     return [p]
 
 
@@ -406,3 +369,4 @@ def print_var_means(sess):
     tvars_vals = sess.run(tvars)
     for var, val in zip(tvars, tvars_vals):
         print(var.name, "mean:", val.mean(), "var:", val.var())
+        print(val)

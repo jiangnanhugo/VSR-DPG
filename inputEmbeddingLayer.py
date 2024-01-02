@@ -1,28 +1,26 @@
 import tensorflow as tf
 
 
-def make_state_manager(config):
+def make_embedding_layer(config):
     """
     Parameters
     ----------
-    config : dict
-        Parameters for this StateManager.
+    config : dict. Parameters for this StateManager.
 
     Returns
     -------
-    state_manager : InputEmbeddingManager
-        The StateManager to be used by the expression decoder.
+    state_manager : InputEmbeddingManager. The StateManager to be used by the expression decoder.
     """
 
     if config is None:
         config = {}
 
-    state_manager = InputEmbeddingManager(**config)
+    embedding_layer = InputEmbeddingLayer(**config)
 
-    return state_manager
+    return embedding_layer
 
 
-class InputEmbeddingManager(object):
+class InputEmbeddingLayer(object):
     """
     Class that uses the previous action, parent, sibling, and/or dangling as
     observations.
@@ -45,7 +43,6 @@ class InputEmbeddingManager(object):
         self.observe_sibling = observe_sibling
         self.observe_action = observe_action
         self.observe_dangling = observe_dangling
-        # self.library = Program.library
 
         # Parameter assertions/warnings
         assert self.observe_action + self.observe_parent + self.observe_sibling + self.observe_dangling > 0, \
@@ -56,7 +53,7 @@ class InputEmbeddingManager(object):
 
         self.n_action_inputs, self.n_parent_inputs, self.n_sibling_inputs = 1, 1, 1
 
-    def setup_manager(self, expression_decoder):
+    def setup_input_embedding(self, expression_decoder,n_action_inputs, n_parent_inputs, n_sibling_inputs):
         """
             Function called inside the controller to perform the needed initializations (e.g., if the tf context is needed)
             :param expression_decoder the controller class
@@ -69,20 +66,21 @@ class InputEmbeddingManager(object):
             with tf.compat.v1.variable_scope("embeddings", initializer=initializer):
                 if self.observe_action:
                     self.action_embeddings = tf.compat.v1.get_variable("action_embeddings",
-                                                                       [self.n_action_inputs, self.embedding_size],
+                                                                       [n_action_inputs, self.embedding_size],
                                                                        trainable=True)
                 if self.observe_parent:
                     self.parent_embeddings = tf.compat.v1.get_variable("parent_embeddings",
-                                                                       [self.n_parent_inputs, self.embedding_size],
+                                                                       [n_parent_inputs, self.embedding_size],
                                                                        trainable=True)
                 if self.observe_sibling:
                     self.sibling_embeddings = tf.compat.v1.get_variable("sibling_embeddings",
-                                                                        [self.n_sibling_inputs, self.embedding_size],
+                                                                        [n_sibling_inputs, self.embedding_size],
                                                                         trainable=True)
 
     def get_tensor_input(self, obs):
         observations = []
         action, parent, sibling, dangling = tf.unstack(obs, axis=1)
+        print("action {}, parent {}, sibling {}, dangling {}".format(action, parent, sibling, dangling))
 
         # Cast action, parent, sibling to int for embedding_lookup or one_hot
         action = tf.cast(action, tf.int32)

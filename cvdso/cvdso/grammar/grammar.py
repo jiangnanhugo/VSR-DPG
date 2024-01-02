@@ -27,17 +27,16 @@ class ContextSensitiveGrammar(object):
 
     OBS_DIM = 4  # action, parent, sibling, dangling
 
-    def __init__(self, nvars, base_rules, aug_grammars,
-                 non_terminal_nodes, aug_nt_nodes,
+    def __init__(self, nvars, production_rules, start_symbols, non_terminal_nodes,
                  max_length, eta,
                  hof_size, reward_threhold):
         # number of input variables
         self.nvars = nvars
         # input variable symbols
         self.input_var_Xs = [Symbol('X' + str(i)) for i in range(self.nvars)]
-        self.production_rules = base_rules + [x for x in aug_grammars if x not in base_rules]
+        self.production_rules = production_rules
 
-        self.aug_nt_nodes = aug_nt_nodes
+        self.start_symbol = 'f->' + start_symbols
         self.non_terminal_nodes = non_terminal_nodes
         self.max_length = max_length
         self.hof_size = hof_size
@@ -45,12 +44,14 @@ class ContextSensitiveGrammar(object):
         self.hall_of_fame = []
         self.eta = eta
         self.allowed_grammar = np.ones(len(self.production_rules), dtype=bool)
-        self.terminal_rules = [g for g in self.production_rules if sum([nt in g for nt in self.non_terminal_nodes]) == 0]
-        self.start_symbol = 'f->A'
+        # those rules has terminal symbol on the right-hand side
+        self.terminal_rules = [g for g in self.production_rules if sum([nt in g[3:] for nt in self.non_terminal_nodes]) == 0]
+        print(f"rules with only terminal symbols: {self.terminal_rules}")
+
 
         # used for output vocabulary
         self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
-        self.n_parent_inputs = self.output_vocab_size + 1 - len(self.terminal_rules)  # Parent sub-lib tokens + empty token
+        self.n_parent_inputs = self.output_vocab_size + 1 #- len(self.terminal_rules)  # Parent sub-lib tokens + empty token
         self.n_sibling_inputs = self.output_vocab_size + 1  # Library tokens + empty token
         self.EMPTY_ACTION = self.n_action_inputs - 1
         self.EMPTY_PARENT = self.n_parent_inputs - 1
@@ -89,7 +90,7 @@ class ContextSensitiveGrammar(object):
 
     def complete_rules(self, list_of_rules):
         """
-        complete all non-terminal tokens in rules.
+        complete all non-terminal symbols in rules.
 
         given one sequence of rules, either cut the sequence for the position where Number_of_Non_Terminal_Symbols=0,
         or add several rules with non only terminal symbols
@@ -99,10 +100,10 @@ class ContextSensitiveGrammar(object):
             ntn_counts += len(self.get_non_terminal_nodes(one_rule)) - 1
             if ntn_counts == 0:
                 return list_of_rules
-        print(f"trying to complete all non-terminal in {list_of_rules} ==>", end="\t")
-
-        for _ in range(ntn_counts):
-            list_of_rules.append(np.random.choice(self.terminal_rules))
+        # print(f"trying to complete all non-terminal in {list_of_rules} ==>", end="\t")
+        #
+        # for _ in range(ntn_counts):
+        #     list_of_rules.append(np.random.choice(self.terminal_rules))
         # print(list_of_rules)
         return list_of_rules
 
@@ -120,6 +121,7 @@ class ContextSensitiveGrammar(object):
     def freeze_equations(self, best_expressions, stand_alone_constants, next_free_variable):
         """
         in the proposed control variable experiment, we need to decide summary constants and stand alone constants.
+        the threshold dependent on the evaluation metric.
         """
         print("---------Freeze Equation----------")
         freezed_exprs = []
@@ -130,7 +132,7 @@ class ContextSensitiveGrammar(object):
         optimized_constants = []
         optimized_obj = []
         expr_template = expression_to_template(parse_expr(fitted_expr), stand_alone_constants)
-        print('expr template is"', expr_template)
+        print('expr template is:', expr_template)
         for _ in range(self.opt_num_expriments):
             self.task.rand_draw_X_fixed()
             self.task.rand_draw_data_with_X_fixed()
@@ -139,15 +141,15 @@ class ContextSensitiveGrammar(object):
                                                                self.task.X,
                                                                y_true,
                                                                self.input_var_Xs,
-                                                               user_scpeficied_iters=1000)
+                                                               user_scpeficied_iters=2000)
             ##
             optimized_constants.append(opt_consts)
             optimized_obj.append(opt_obj)
         optimized_constants = np.asarray(optimized_constants)
-        optimized_obj = np.asarray(optimized_obj)
+        # optimized_obj = np.asarray(optimized_obj)
         print(optimized_obj)
         num_changing_consts = expr_template.count('C')
-        is_summary_constants = np.zeros(num_changing_consts)
+        is_summary_constants = np.zeros(num_changing_consts, dtype=int)
         if np.max(optimized_obj) <= self.expr_obj_thres:
             for ci in range(num_changing_consts):
                 print("std", np.std(optimized_constants[:, ci]), end="\t")
@@ -178,19 +180,27 @@ class ContextSensitiveGrammar(object):
                                                                        self.task.X,
                                                                        y_true,
                                                                        self.input_var_Xs,
-                                                                       max_opt_iter=1000)
+                                                                       user_scpeficied_iters=1000)
                     ##
                     # optimized_constants.append(opt_consts)
                     optimized_cond_obj.append(opt_obj)
                 if np.max(optimized_cond_obj) <= self.expr_obj_thres:
-                    print(f'summary constant c{ci} will still be a constant in the next round')
                     is_summary_constants[ci] = 3
                 else:
                     print(f'summary constant c{ci} will be a summary constant in the next round')
-
+            # print all the information together
+            for i, ci in enumerate(is_summary_constants):
+                if ci == 0:
+                    print(f"c{i} is a real stand-alone constant")
+                elif ci == 1:
+                    print(f'c{i}  is a summary constant')
+                elif ci == 2:
+                    print(f'c{i} is a noisy minial constant')
+                elif ci == 3:
+                    print(f'summary constant c{i} will still be a constant in the next round')
             ####
             cidx = 0
-            new_expr_template = 'B->'
+            new_expr_template = ''
             for ti in expr_template:
                 if ti == 'C' and is_summary_constants[cidx] == 1:
                     # real summary constant in the next round
@@ -224,7 +234,7 @@ class ContextSensitiveGrammar(object):
         fitted_expr = best_expressions[-1].fitted_eq
         expr_template = expression_to_template(parse_expr(fitted_expr), stand_alone_constants)
         cidx = 0
-        new_expr_template = 'B->'
+        new_expr_template = ''
         for ti in expr_template:
             if ti == 'C':
                 # summary constant

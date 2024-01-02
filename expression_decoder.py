@@ -8,7 +8,6 @@ from cvdso.memory import Batch
 from cvdso.subroutines import parents_siblings
 
 
-
 class LinearWrapper:
     """
     RNNCell wrapper that adds a linear layer to the output.
@@ -45,16 +44,17 @@ class NeuralExpressionDecoder(object):
     of symbolic expression. It is trained using REINFORCE with baseline.
 
     sess : tf.Session. TenorFlow Session object.
-    state_manager: dso.tf_state_manager.StateManager. Object that handles the state features to be used
+    input_embedding_layer:  Object that handles the state features to be used
     summary : bool.  Write tensorboard summaries?
     debug : int. Debug level. 0: No debug. 1: Print shapes and number of parameters for each variable.
     max_length : int.  Maximum sequence length.
     """
 
-    def __init__(self, # grammar
+    def __init__(self,
+                 # grammar
                  cfg: ContextSensitiveGrammar,
                  sess,
-                 state_manager,
+                 input_embedding_layer,
                  # RNN cell hyperparameters
                  cell: str = 'lstm',  # cell : str Recurrent cell to use. Supports 'lstm' and 'gru'.
                  num_layers: int = 1,  # Number of RNN layers.
@@ -85,7 +85,7 @@ class NeuralExpressionDecoder(object):
         self.pqt = pqt
         self.pqt_k = pqt_k
         self.pqt_batch_size = pqt_batch_size
-        self.cfg=cfg
+        self.cfg = cfg
         decoder_output_vocab_size = cfg.output_vocab_size
 
         # Placeholders, computed after instantiating expressions
@@ -106,7 +106,7 @@ class NeuralExpressionDecoder(object):
             cell = LinearWrapper(cell=cell, output_size=decoder_output_vocab_size)
 
             initial_obs = self.initial_obs()
-            state_manager.setup_manager(self)
+            input_embedding_layer.setup_input_embedding(self, cfg.n_parent_inputs, cfg.n_parent_inputs, cfg.n_parent_inputs)
             initial_obs = tf.broadcast_to(initial_obs, [self.batch_size, len(initial_obs)])  # (?, obs_dim)
 
             # Define loop function to be used by tf.nn.raw_rnn
@@ -115,21 +115,16 @@ class NeuralExpressionDecoder(object):
                 if cell_output is None:  # time == 0
                     finished = tf.zeros(shape=[self.batch_size], dtype=tf.bool)
                     obs = initial_obs
-                    next_input = state_manager.get_tensor_input(obs)
+                    next_input = input_embedding_layer.get_tensor_input(obs)
                     next_cell_state = cell.zero_state(batch_size=self.batch_size,
                                                       dtype=tf.float32)  # 2-tuple, each shape (?, num_units)
                     emit_output = None
-                    actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True,
-                                                clear_after_read=False)  # Read twice
+                    actions_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True, clear_after_read=False)  # Read twice
                     obs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True, clear_after_read=True)
 
                     lengths = tf.ones(shape=[self.batch_size], dtype=tf.int32)
-                    next_loop_state = (
-                        actions_ta,
-                        obs_ta,
-                        obs,
-                        lengths,  # Unused until implementing variable length
-                        finished)
+                    next_loop_state = (actions_ta, obs_ta, obs,  lengths,  # Unused until implementing variable length
+                                       finished)
                 else:
                     actions_ta, obs_ta, obs, lengths, finished = loop_state
                     logits = cell_output
@@ -148,7 +143,7 @@ class NeuralExpressionDecoder(object):
                                                     Tout=tf.float32)
 
                     next_obs.set_shape([None, self.cfg.OBS_DIM])
-                    next_input = state_manager.get_tensor_input(next_obs)
+                    next_input = input_embedding_layer.get_tensor_input(next_obs)
                     next_obs_ta = obs_ta.write(time - 1, obs)  # Write OLD obs
                     finished = next_finished = tf.logical_or(
                         finished,
@@ -181,7 +176,6 @@ class NeuralExpressionDecoder(object):
                     "obs": tf.compat.v1.placeholder(tf.float32, [None, cfg.OBS_DIM, self.max_length]),
                     "lengths": tf.compat.v1.placeholder(tf.int32, [None, ]),
                     "rewards": tf.compat.v1.placeholder(tf.float32, [None], name="r"),
-                    "on_policy": tf.compat.v1.placeholder(tf.int32, [None, ])
                 }
                 batch_ph = Batch(**batch_ph)
 
@@ -195,7 +189,7 @@ class NeuralExpressionDecoder(object):
         def make_neglogp_and_entropy(B):
             with tf.compat.v1.variable_scope('policy', reuse=True):
                 logits, _ = tf.compat.v1.nn.dynamic_rnn(cell=cell,
-                                                        inputs=state_manager.get_tensor_input(B.obs),
+                                                        inputs=input_embedding_layer.get_tensor_input(B.obs),
                                                         sequence_length=B.lengths,  # Backpropagates only through sequence length
                                                         dtype=tf.float32)
 
@@ -283,38 +277,41 @@ class NeuralExpressionDecoder(object):
 
         self.create_summaries(pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r)
 
-    def get_next_obs(self, actions, obs):
-        print(f"actions: {actions.shape} obs: {obs.shape}")
-        print("actions: ", actions[-1, :])
-        print("obs: ", obs[-1, :])
-        dangling = obs[:, 3]  # Shape of obs: (?, 4)
-        action = actions[:, -1]  # Current action
-        # Compute parents and siblings
-        parent, sibling = parents_siblings(actions,
-                                           arities=1,
-                                           parent_adjust=1,
-                                           empty_parent=self.cfg.EMPTY_PARENT,
-                                           empty_sibling=self.cfg.EMPTY_SIBLING)
-
-        # Update dangling with (arity - 1) for each element in action
-
-        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
-        next_obs = next_obs.astype(np.float32)
-        return next_obs
-
     def initial_obs(self):
         """
         Returns the initial observation: empty action, parent, and sibling, and
         dangling is 1.
         """
 
-        # Order of observations: action, parent, sibling, dangling
+        # Order of observations: action, parent, sibling
         initial_obs = np.array([self.cfg.EMPTY_ACTION,
                                 self.cfg.EMPTY_PARENT,
                                 self.cfg.EMPTY_SIBLING,
                                 1],
                                dtype=np.float32)
+        print("initial_obs:", initial_obs)
         return initial_obs
+
+    def get_next_obs(self, actions, obs):
+        print(f"actions: {actions.shape} obs: {obs.shape}")
+        print("actions: ", actions)
+        print("parent: ", obs[:,1])
+        print("sibling: ", obs[:, 2])
+        print("dangling: ", obs[:, 3])
+        dangling = obs[:, 3]  # Shape of obs: (?, 4)
+
+        action = actions[:, -1]  # Current action
+        # Compute parents and siblings
+        parent, sibling = parents_siblings(actions,
+                                           empty_parent=self.cfg.EMPTY_PARENT,
+                                           empty_sibling=self.cfg.EMPTY_SIBLING)
+
+        # Update dangling with (arity - 1) for each element in action
+        print("parent {}, sibling {}".format(parent, sibling))
+        next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
+        next_obs = next_obs.astype(np.float32)
+        print("next_obs:", next_obs)
+        return next_obs
 
     def create_summaries(self, pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r):
         # Create summaries

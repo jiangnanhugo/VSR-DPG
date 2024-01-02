@@ -5,7 +5,7 @@ import numpy as np
 
 
 # @jit(nopython=True, parallel=True)
-def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling):
+def parents_siblings(tokens,  empty_parent, empty_sibling):
     """
     Given a batch of action sequences, computes and returns the parents and
     siblings of the next element of the sequence.
@@ -48,9 +48,9 @@ def parents_siblings(tokens, arities, parent_adjust, empty_parent, empty_sibling
     adj_parents = np.full(shape=(batch_size,), fill_value=empty_parent, dtype=np.int32)
     siblings = np.full(shape=(batch_size,), fill_value=empty_sibling, dtype=np.int32)
     # Parallelized loop over action sequences
-    for bi in prange(batch_size):
+    for bi in range(batch_size):
         adj_parents[bi] = tokens[bi, -1]
-        siblings[bi] = tokens[bi, -1]
+        # siblings[bi] = tokens[bi, -1]
     return adj_parents, siblings
 
 

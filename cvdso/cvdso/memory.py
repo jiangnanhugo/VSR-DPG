@@ -7,7 +7,7 @@ import numpy as np
 
 
 Batch = namedtuple(
-    "Batch", ["actions", "obs", "lengths", "rewards", "on_policy"])
+    "Batch", ["actions", "obs", "lengths", "rewards"])
 
 
 def make_queue(expression_decoder=None, priority=False, capacity=np.inf, seed=0):

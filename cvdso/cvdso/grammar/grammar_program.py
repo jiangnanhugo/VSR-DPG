@@ -18,7 +18,7 @@ from cvdso.grammar.production_rules import production_rules_to_expr
 
 class SymbolicExpression(object):
     def __init__(self, list_of_rules):
-        self.traversal = ';'.join(list_of_rules)
+        self.traversal = list_of_rules
         self.expr_template = production_rules_to_expr(list_of_rules)
         self.reward = None
         self.originally_on_policy = 1
@@ -44,7 +44,7 @@ class grammarProgram(object):
 
         self.optimizer = optimizer
         # store the list of historical fitted expressions.
-        self.cache = {}
+        # self.cache = {}
         self.max_opt_iter = max_opt_iter
         self.max_open_constants = max_open_constants
 
@@ -54,21 +54,21 @@ class grammarProgram(object):
         """
         one_expr = SymbolicExpression(list_of_rules)
 
-        if one_expr.expr_template in self.cache:
-            return self.cache[one_expr.expr_template]
+        # if one_expr.expr_template in self.cache:
+        #     return self.cache[one_expr.expr_template]
         # print(one_expr.expr_template)
         reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
                                                 dataX,
                                                 y_true,
                                                 input_var_Xs,
-                                                len(one_expr.traversal.split(";")))
+                                                len(one_expr.traversal))
 
         one_expr.reward = reward
         one_expr.fitted_eq = fitted_eq
-        self.cache[one_expr.expr_template] = one_expr
+        # self.cache[one_expr.expr_template] = one_expr
         return one_expr
 
-    def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size: int, eta=0.9999, user_scpeficied_iters=-1, verbose=False):
+    def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size=1, eta=0.9999, user_scpeficied_iters=-1, verbose=False):
         """
         Calculate reward score for a complete parse tree
         If placeholder C is in the equation, also execute estimation for C

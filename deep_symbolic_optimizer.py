@@ -5,7 +5,6 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 from collections import defaultdict
-from multiprocessing import Pool, cpu_count
 import random
 import time
 
@@ -17,7 +16,7 @@ tf.compat.v1.disable_eager_execution()
 from expression_decoder import NeuralExpressionDecoder
 from train import learn
 from utils import load_config
-from state_manager import make_state_manager as manager_make_state_manager
+from inputEmbeddingLayer import make_embedding_layer
 
 
 class VSRDeepSymbolicRegression(object):
@@ -41,7 +40,6 @@ class VSRDeepSymbolicRegression(object):
         # Clear the cache and reset the compute graph
         tf.compat.v1.reset_default_graph()
         # Generate objects needed for training and set seeds
-        self.pool = None  # self.make_pool_and_set_task()
         # set seeds
         seed = int(time.perf_counter() * 10000) % 1000007
         random.seed(seed)
@@ -54,11 +52,11 @@ class VSRDeepSymbolicRegression(object):
         self.sess = tf.compat.v1.Session()
 
         # Prepare training parameters
-        self.state_manager = manager_make_state_manager(self.config_state_manager)
+        self.input_embedding_layer = make_embedding_layer(self.config_input_embedding)
 
         self.expression_decoder = NeuralExpressionDecoder(self.cfg,
                                                           self.sess,
-                                                          self.state_manager,
+                                                          self.input_embedding_layer,
                                                           **self.config_expression_decoder)
 
     def train(self):
@@ -68,7 +66,6 @@ class VSRDeepSymbolicRegression(object):
         result_dict = learn(self.cfg,
                             self.sess,
                             self.expression_decoder,
-                            self.pool,
                             **self.config_training)
 
         return result_dict
@@ -78,6 +75,6 @@ class VSRDeepSymbolicRegression(object):
         self.config = defaultdict(dict, config)
         self.config_task = self.config["task"]
         self.config_training = self.config["training"]
-        self.config_state_manager = self.config["state_manager"]
+        self.config_input_embedding = self.config["input_embedding"]
         self.config_expression_decoder = self.config["expression_decoder"]
 

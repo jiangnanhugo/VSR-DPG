@@ -22,7 +22,7 @@
       "verbose" : true,
 
       // Debug level
-      "debug" : 0,
+      "debug" : 2,
 
       // Whether to stop early if success condition is met
       "early_stopping" : true,
@@ -38,14 +38,14 @@
       "save_token_count" : false
    },
    // The State Manager defines the inputs to the Controller
-   "state_manager": {
+   "input_embedding": {
          // Observation hyperparameters
          "observe_action" : false,
          "observe_parent" : true,
          "observe_sibling" : true,
          "observe_dangling" : false,
          "embedding" : false,
-         "embedding_dim" : 8
+         "embedding_dim" : 128
    },
    // Hyperparameters related to the RNN distribution over objects.
    "expression_decoder" : {
