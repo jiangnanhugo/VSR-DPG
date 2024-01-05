@@ -26,7 +26,7 @@ class SymbolicExpression(object):
         self.invalid = False
 
     def __repr__(self):
-        return f"eq_template={self.expr_template}, eq={self.fitted_eq}, r={self.reward}"
+        return f" r={self.reward}, eq={self.fitted_eq}"
 
 
 class grammarProgram(object):
@@ -87,7 +87,7 @@ class grammarProgram(object):
         """
         eq = simplify_template(eq)
         print(f"expr template: {eq}")
-        print(data_X.shape, '\n', data_X[:4, :])
+        print(data_X.shape, '\n', data_X[:2, :])
         if 'A' in eq or 'B' in eq:  # not a valid equation
             return -np.inf, eq, 0, 0
         # count number of constants in equation

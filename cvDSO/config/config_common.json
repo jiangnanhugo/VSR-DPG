@@ -52,34 +52,7 @@
       // Maximum sequence length.
       "max_length" : 20,
 
-      // RNN architectural hyperparameters.
-      "cell" : "lstm",
-      "num_layers" : 1,
-      "num_units" : 32,
-      "initializer" : "zeros",
-
-      // Optimizer hyperparameters.
-      "learning_rate" : 0.001,
-      "optimizer" : "adam",
-
-      // Entropy regularizer hyperparameters.
-      "entropy_weight" : 0.005,
-      "entropy_gamma" : 1.0,
-
-      // EXPERIMENTAL: Priority queue training hyperparameters.
-      "pqt" : false,
-      "pqt_k" : 10,
-      "pqt_batch_size" : 1,
-      "pqt_weight" : 200.0,
-      "pqt_use_pg" : false,
-
       // Whether to compute TensorBoard summaries.
       "summary" : false
-   },
-
-   // Postprocessing hyperparameters.
-   "postprocess" : {
-      "show_count" : 5,
-      "save_plots" : true
    }
 }

@@ -62,7 +62,7 @@ class NeuralExpressionDecoder(object):
                  initializer: str = 'zeros',
                  # Optimizer hyperparameters
                  optimizer: str = 'adam',
-                 learning_rate: float = 0.001,
+                 learning_rate: float = 0.01,
                  # Loss hyperparameters
                  entropy_weight=0.005,  # Coefficient for entropy bonus.
                  entropy_gamma=1.0,  # Gamma in entropy decay.
