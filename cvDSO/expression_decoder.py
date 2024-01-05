@@ -3,9 +3,9 @@
 import tensorflow as tf
 import numpy as np
 
-from cvdso.grammar.grammar import ContextSensitiveGrammar
-from cvdso.memory import Batch
-from cvdso.subroutines import parents_siblings
+from grammar.grammar import ContextSensitiveGrammar
+from grammar.memory import Batch
+from grammar.subroutines import parents_siblings
 
 
 class LinearWrapper:

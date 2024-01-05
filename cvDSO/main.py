@@ -1,17 +1,16 @@
 """Parallelized, single-point launch script to run DSO on a set of benchmarks."""
 
 import time
-import multiprocessing
 from copy import deepcopy
 import click
 
 from scibench.symbolic_data_generator import *
 from scibench.symbolic_equation_evaluator_public import Equation_evaluator
 
-from cvdso.grammar.grammar import ContextSensitiveGrammar
-from cvdso.grammar.grammar_regress_task import RegressTask
-from cvdso.grammar.production_rules import get_production_rules, get_var_i_production_rules
-from cvdso.grammar.grammar_program import grammarProgram
+from grammar.grammar import ContextSensitiveGrammar
+from grammar.grammar_regress_task import RegressTask
+from grammar.production_rules import get_production_rules, get_var_i_production_rules
+from grammar.grammar_program import grammarProgram
 from deep_symbolic_optimizer import VSRDeepSymbolicRegression
 from utils import load_config, create_uniform_generations, create_reward_threshold
 

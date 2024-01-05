@@ -1,7 +1,5 @@
 #!/usr/bin/zsh
-#basepath=/home/jiangnan/PycharmProjects/scibench
 basepath=/depot/yexiang/apps/jiang631/data/scibench
-#py3615=/home/jiangnan/anaconda3/envs/py3615/bin/python3
 #
 py3615=/home/jiang631/workspace/miniconda3/envs/py3615/bin/python3
 type=$1

@@ -7,27 +7,18 @@ from itertools import compress
 import tensorflow as tf
 import numpy as np
 
-from cvdso.utils import empirical_entropy, weighted_quantile
-from cvdso.memory import Batch, make_queue
-from cvdso.variance import quantile_variance
+from grammar.grammar import ContextSensitiveGrammar
+from grammar.utils import empirical_entropy, weighted_quantile
+from grammar.memory import Batch, make_queue
+from grammar.variance import quantile_variance
 
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
-
-
-# Work for multiprocessing pool: compute reward
-def work(p):
-    """Compute reward and return it with optimized constants"""
-    r = p.r
-    return p
-
-
 """
-    Executes the main training loop.
-
+  
     sess : tf.Session. TensorFlow Session object.
     expression_decoder : dso.expression_decoder.ExpressionDecoder. ExpressionDecoder object used to generate Programs.
 
@@ -102,7 +93,7 @@ def work(p):
     """
 
 
-def learn(grammar_model,
+def learn(grammar_model: ContextSensitiveGrammar,
           sess, expression_decoder,
           n_epochs=12, dataset_size=None, batch_size=1000,
           alpha=0.5, epsilon=0.05, verbose=True, baseline="R_e",
@@ -110,6 +101,9 @@ def learn(grammar_model,
           debug=0, use_memory=False, memory_capacity=1e3,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
           save_top_samples_per_batch=0, save_token_count=False):
+    """
+      Executes the main training loop.
+    """
     print(dataset_size, n_epochs)
     # Initialize compute graph
     sess.run(tf.compat.v1.global_variables_initializer())
@@ -302,16 +296,7 @@ def learn(grammar_model,
         else:
             pqt_batch = None
 
-        # Train the expression_decoder
-        summaries = expression_decoder.train_step(b_train, sampled_batch, pqt_batch)
 
-        # wall time calculation for the epoch
-        epoch_walltime = time.time() - start_time
-
-        # Collect sub-batch statistics and write output
-        # print(r_full, l_full, actions_full, s_full, r,
-        #       expr_lengths, actions, s, r_best, r_max, ewma, summaries, epoch,
-        #       s_history, b_train, epoch_walltime, controller_programs)
 
         # Update the memory queue
         if memory_queue is not None:
@@ -350,6 +335,7 @@ def learn(grammar_model,
 
         if nevals > dataset_size:
             break
+        # grammar_model.print_hofs(flag=-2)
 
     # Print the priority queue at the end of training
     if verbose and priority_queue is not None:

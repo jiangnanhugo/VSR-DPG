@@ -2,12 +2,8 @@
 
 import collections
 import copy
-
-
 import os
-
 import commentjson as json
-
 
 
 def safe_merge_dicts(base_dict, update_dict):
@@ -36,26 +32,18 @@ def safe_merge_dicts(base_dict, update_dict):
     return base_dict
 
 
-
-
-
 ##### load configure files
 def get_base_config():
     # Load base config
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'config', "config_common.json"), encoding='utf-8') as f:
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config', "config_common.json"), encoding='utf-8') as f:
         base_config = json.load(f)
 
-    # Load task specific config
-    task_config_file = "config_regression.json"
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'config', task_config_file), encoding='utf-8') as f:
-        task_config = json.load(f)
-
-    return safe_merge_dicts(base_config, task_config)
+    return base_config
 
 
 def load_config(config=None):
     # Load user config
-    print("user config file:",config)
+    print("user config file:", config)
     if isinstance(config, str):
         with open(config, encoding='utf-8') as f:
             user_config = json.load(f)
@@ -71,9 +59,9 @@ def load_config(config=None):
     # Return combined configs
     return safe_merge_dicts(base_config, user_config)
 
+
 def create_reward_threshold(highest_threhold, nvar, ratio=0.95):
     return [highest_threhold * ratio ** i for i in range(nvar)]
-
 
 
 def create_geometric_generations(n_generations, nvar, ratio=1.2):
