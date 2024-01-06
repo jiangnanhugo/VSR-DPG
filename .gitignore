@@ -6,7 +6,7 @@
 # Node artifact files
 node_modules/
 dist/
-data/equation-tree
+data/equation-tree/
 
 # Compiled Java class files
 *.class
