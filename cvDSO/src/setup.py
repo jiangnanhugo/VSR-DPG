@@ -1,21 +1,13 @@
 from distutils.core import setup
 
-import numpy
 
 required = [
-    "pytest",
     "cython",
     "numpy",
-    "tensorflow",
+    "tensorflow==2.15.0",
     "numba",
     "sympy",
-    "pandas",
-    "scikit-learn",
     "click",
-    "deap",
-    "pathos",
-    "seaborn",
-    "progress",
     "tqdm",
     "commentjson",
     "PyYAML"
@@ -26,7 +18,6 @@ required = [
 setup(name='grammar',
       version='1.0',
       description='Deep symbolic optimization with control variable experiment.',
-      author='NA',
       packages=['grammar'],
       install_requires=required,
       )

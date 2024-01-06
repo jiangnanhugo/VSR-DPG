@@ -1,6 +1,5 @@
 #!/usr/bin/zsh
 basepath=/depot/yexiang/apps/jiang631/data/cvDSO
-#
 py3=/home/jiang631/workspace/miniconda3/bin/python3
 type=$1
 nv=$2
@@ -24,7 +23,7 @@ do
 		mkdir -p $log_dir
 	fi
 	for bsl in DSR; do
-		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
+		sbatch -A standby --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
 #!/bin/bash -l
 
 #SBATCH --job-name="cvDSO-${eq_name}"
@@ -35,7 +34,7 @@ do
 
 hostname
 
-$py3 $basepath/cvDSO/main.py $basepath/config/config_regression_${type}_${bsl}.json --equation_name $datapath/$eq_name --noise_type 'normal' --noise_scale 0.0  > $dump_dir/$pgn.${bsl}.cvdso.out
+$py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${type}_${bsl}.json --equation_name $datapath/$eq_name --noise_type 'normal' --noise_scale 0.0  > $dump_dir/$pgn.${bsl}.cvdso.out
 
 EOT
 	done
