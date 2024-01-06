@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
-basepath=/depot/yexiang/apps/jiang631/data/cvDSO
-py3=/home/jiang631/workspace/miniconda3/bin/python3
+basepath=/depot/yexiang/apps/jiang631/data/cvdso
+py3=/home/jiang631/workspace/miniconda3/envs/py310/bin/python
 type=$1
 nv=$2
 nt=$3
@@ -22,12 +22,13 @@ do
 		mkdir -p $dump_dir
 	fi
 	log_dir=$basepath/log/$(date +%F)
-	echo $logdir
+	echo $log_dir
 	if [ ! -d "$log_dir" ]; then
 		echo "create dir: $log_dir"
 		mkdir -p $log_dir
 	fi
 	for bsl in DSR; do
+		echo $basepath/cvDSO/config/config_regression_${bsl}.json
 		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
 #!/bin/bash -l
 
@@ -39,7 +40,7 @@ do
 
 hostname
 
-$py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${type}_${bsl}.json --equation_name $datapath/$eq_name \
+$py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${bsl}.json --equation_name $datapath/$eq_name \
 --optimizer $opt --metric_name $metric_name \
 --noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 

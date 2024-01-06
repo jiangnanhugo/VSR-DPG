@@ -97,7 +97,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
         used_time = time.time() - start
 
-        print("cvDSO time {:.0f}".format(used_time))
+        print("cvdso time {:.0f}".format(used_time))
         # print(f"best expression is:", best_expressions[-1])
         # from cvdso.grammar.grammar_program import SymbolicExpression
         # eq = SymbolicExpression(
