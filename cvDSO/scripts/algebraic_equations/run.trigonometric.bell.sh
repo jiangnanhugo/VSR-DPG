@@ -9,7 +9,7 @@ opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
 metric_name=inv_nrmse
-set -x
+
 for prog in {0..9};
 do
 	eq_name=${type}_nv${nv}_nt${nt}_prog_${prog}.in
@@ -27,7 +27,7 @@ do
 		mkdir -p $log_dir
 	fi
 	for bsl in DSR; do
-		sbatch -A standby --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
+		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
 #!/bin/bash -l
 
 #SBATCH --job-name="cvDSO-${type}${nv}${nt}${prog}"
