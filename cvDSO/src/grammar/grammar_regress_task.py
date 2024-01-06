@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 class RegressTask(object):
     """
     used to handle input data 'X' for querying the data oracle.
@@ -72,14 +71,6 @@ class RegressTask(object):
     def evaluate(self):
         return self.data_query_oracle.evaluate(self.X)
 
-    def print_reward_function_all_metrics(self, y_hat):
-        """used for print the error for all metrics between the predicted y and true program."""
-        # y_hat = p.execute(self.X)
-        dict_of_result = self.data_query_oracle._evaluate_all_losses(self.X, y_hat)
-        print('-' * 30)
-        for mertic_name in dict_of_result:
-            print(f"{mertic_name} {dict_of_result[mertic_name]}")
-        print('-' * 30)
 
     def reward_function(self, y_hat):
 

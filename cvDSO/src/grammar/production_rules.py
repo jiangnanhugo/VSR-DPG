@@ -1,7 +1,6 @@
 from sympy import Symbol, Float, Integer, Rational
 
 
-
 def production_rules_to_expr(list_of_production_rules):
     """
     Convert a list of production rules to the exact symbolic equation.
@@ -124,6 +123,7 @@ def get_sincos_vars_rules(nvars: int, non_terminal_node='A') -> list:
         rules += get_ith_sincos_rules(i, non_terminal_node)
     return rules
 
+
 # get extra rules:
 
 def get_var_i_production_rules(round_idx, operators_set):
@@ -141,6 +141,7 @@ def get_var_i_production_rules(round_idx, operators_set):
     if 'n5' in operators_set:
         grammars += get_ith_n5_rules(round_idx)
     return grammars
+
 
 def get_ith_sincos_rules(i: int, non_terminal_node='A') -> list:
     # [A->C*sin(Xi), A->C*cos(Xi)]
@@ -175,7 +176,6 @@ def get_ith_n5_rules(xi: int, non_terminal_node='A') -> list:
 def get_ith_inv_rules(xi: int, non_terminal_node='A') -> list:
     # [A-> C/Xi]
     return [f'{non_terminal_node}->C/X{xi}']
-
 
 
 if __name__ == '__main__':

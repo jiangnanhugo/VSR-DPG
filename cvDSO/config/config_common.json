@@ -34,8 +34,7 @@
       "memory_threshold" : null,
 
       // Parameters to control what outputs to save.
-      "save_positional_entropy" : false,
-      "save_token_count" : false
+      "save_positional_entropy" : false
    },
    // The State Manager defines the inputs to the Controller
    "input_embedding": {

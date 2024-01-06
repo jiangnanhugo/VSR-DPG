@@ -48,10 +48,9 @@ class ContextSensitiveGrammar(object):
         self.terminal_rules = [g for g in self.production_rules if sum([nt in g[3:] for nt in self.non_terminal_nodes]) == 0]
         print(f"rules with only terminal symbols: {self.terminal_rules}")
 
-
         # used for output vocabulary
         self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
-        self.n_parent_inputs = self.output_vocab_size + 1 #- len(self.terminal_rules)  # Parent sub-lib tokens + empty token
+        self.n_parent_inputs = self.output_vocab_size + 1  # - len(self.terminal_rules)  # Parent sub-lib tokens + empty token
         self.n_sibling_inputs = self.output_vocab_size + 1  # Library tokens + empty token
         self.EMPTY_ACTION = self.n_action_inputs - 1
         self.EMPTY_PARENT = self.n_parent_inputs - 1
@@ -109,13 +108,14 @@ class ContextSensitiveGrammar(object):
 
     def construct_expression(self, list_of_rules):
         list_of_rules = [self.start_symbol] + [self.production_rules[li] for li in list_of_rules]
-        # print("list_of_rules:", list_of_rules)
+
         one_list_of_rules = self.complete_rules(list_of_rules)
         # print("pruned list_of_rules:", one_list_of_rules)
         self.task.rand_draw_data_with_X_fixed()
         y_true = self.task.evaluate()
         one_expression = self.program.fitting_new_expression(one_list_of_rules, self.task.X, y_true, self.input_var_Xs)
-
+        if one_expression.reward != -np.inf:
+            one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)
         return one_expression
 
     def freeze_equations(self, best_expressions, stand_alone_constants, next_free_variable):
@@ -147,7 +147,7 @@ class ContextSensitiveGrammar(object):
             optimized_obj.append(opt_obj)
         optimized_constants = np.asarray(optimized_constants)
         # optimized_obj = np.asarray(optimized_obj)
-        print(optimized_obj)
+        print("optimized_obj: ",optimized_obj)
         num_changing_consts = expr_template.count('C')
         is_summary_constants = np.zeros(num_changing_consts, dtype=int)
         if np.max(optimized_obj) <= self.expr_obj_thres:
@@ -271,7 +271,7 @@ class ContextSensitiveGrammar(object):
         else:
             new_freezed_exprs.append(expri)
             new_aug_nt_nodes.append(ntnodei)
-        # only generate at most 3 template for the next round, otherwise it will be too time counsuming
+        # only generate at most 3 template for the next round, otherwise it will be too time consuming
         ret_frezze_exprs, ret_aug_nt_nodes = [], []
         for x, y in zip(new_freezed_exprs, new_aug_nt_nodes):
             if x not in ret_frezze_exprs:
@@ -279,7 +279,7 @@ class ContextSensitiveGrammar(object):
                 ret_aug_nt_nodes.append(y)
         return ret_frezze_exprs, ret_aug_nt_nodes, new_stand_alone_constants
 
-    def update_hall_of_fame(self, one_fitted_expression):
+    def update_hall_of_fame(self, one_fitted_expression: SymbolicExpression):
 
         if one_fitted_expression.traversal.count(';') <= self.max_length:
             if not self.hall_of_fame:
@@ -292,36 +292,37 @@ class ContextSensitiveGrammar(object):
                     if one_fitted_expression.reward > self.hall_of_fame[-1].reward:
                         self.hall_of_fame = sorted(self.hall_of_fame[1:] + [one_fitted_expression], key=lambda x: x.reward)
 
-    def print_hofs(self, flag, verbose=False):
-        if flag == -1:
-            old_vf = copy.copy(self.program.get_vf())
+    def print_hofs(self, mode: str, verbose=False):
+        if mode == 'global':
+            old_vf = copy.copy(self.task.get_vf())
             self.program.vf = [1, ] * self.nvars
-            self.task.set_allowed_inputs(self.program.get_vf())
-            print("new vf for HOF ranking", self.program.get_vf(), self.task.fixed_column)
+            self.task.set_allowed_inputs(self.task.get_vf())
+            print("new vf for HOF ranking", self.task.get_vf(), self.task.fixed_column)
         self.task.rand_draw_data_with_X_fixed()
         print(f"PRINT HOF (free variables={self.task.fixed_column})")
         print("=" * 20)
         for pr in self.hall_of_fame[-len(self.hall_of_fame):]:
             if verbose:
-                print('        ',pr, end="\n")
-                self.print_reward_function_all_metrics(pr[2])
+                print('        ', pr, end="\n")
+                pr.print_all_metrics()
+                # self.print_reward_function_all_metrics(pr[2])
             else:
                 print('        ', pr, end="\n")
         print("=" * 20)
-        if flag == -1:
-            self.program.vf = old_vf
+        if mode == 'global':
+            self.task.vf = old_vf
             self.task.set_allowed_inputs(old_vf)
-            print("reset old vf", self.program.get_vf(), self.task.fixed_column)
+            print("reset old vf", self.task.get_vf(), self.task.fixed_column)
 
-    def print_reward_function_all_metrics(self, expr_str):
+    def print_reward_function_all_metrics(self, expr_str, verbose=False):
         """used for print the error for all metrics between the predicted program `p` and true program."""
         y_hat = execute(expr_str, self.task.X.T, self.input_var_Xs)
         dict_of_result = self.task.data_query_oracle._evaluate_all_losses(self.task.X, y_hat)
-        dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(
-            expr_str)
-        print('-' * 30)
-        for mertic_name in dict_of_result:
-            print(f"{mertic_name} {dict_of_result[mertic_name]}")
-        print('-' * 30)
-
-
+        # dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(
+        #     expr_str)
+        if verbose:
+            print('-' * 30)
+            for mertic_name in dict_of_result:
+                print(f"{mertic_name} {dict_of_result[mertic_name]}")
+            print('-' * 30)
+        return dict_of_result

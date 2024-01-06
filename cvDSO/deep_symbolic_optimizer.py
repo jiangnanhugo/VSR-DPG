@@ -59,13 +59,14 @@ class VSRDeepSymbolicRegression(object):
                                                           self.input_embedding_layer,
                                                           **self.config_expression_decoder)
 
-    def train(self):
+    def train(self, reward_threshold):
         # Train the model
         print("extra arguments:\n {}".format(self.config_training))
 
         result_dict = learn(self.cfg,
                             self.sess,
                             self.expression_decoder,
+                            reward_threshold=reward_threshold,
                             **self.config_training)
 
         return result_dict

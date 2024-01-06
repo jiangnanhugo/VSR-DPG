@@ -3,13 +3,8 @@ import tensorflow as tf
 
 def make_embedding_layer(config):
     """
-    Parameters
-    ----------
     config : dict. Parameters for this StateManager.
-
-    Returns
-    -------
-    state_manager : InputEmbeddingManager. The StateManager to be used by the expression decoder.
+    Returns: InputEmbeddingManager. The StateManager to be used by the expression decoder.
     """
 
     if config is None:

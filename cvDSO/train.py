@@ -16,7 +16,6 @@ from grammar.variance import quantile_variance
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-
 """
   
     sess : tf.Session. TensorFlow Session object.
@@ -96,11 +95,12 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 def learn(grammar_model: ContextSensitiveGrammar,
           sess, expression_decoder,
           n_epochs=12, dataset_size=None, batch_size=1000,
+          reward_threshold=0.999999,
           alpha=0.5, epsilon=0.05, verbose=True, baseline="R_e",
           b_jumpstart=False, early_stopping=True,
           debug=0, use_memory=False, memory_capacity=1e3,
           warm_start=None, memory_threshold=None, save_positional_entropy=False,
-          save_top_samples_per_batch=0, save_token_count=False):
+          save_top_samples_per_batch=0):
     """
       Executes the main training loop.
     """
@@ -129,7 +129,6 @@ def learn(grammar_model: ContextSensitiveGrammar,
         grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
         rewards = np.array([p.r for p in grammar_expressions])
         expr_lengths = np.array([len(p.traversal.split(";")) for p in grammar_expressions])
-        # on_policy = np.array([p.originally_on_policy for p in grammar_expressions])
         sampled_batch = Batch(actions=actions, obs=obs,
                               lengths=expr_lengths, rewards=rewards)
         memory_queue.push_batch(sampled_batch, grammar_expressions)
@@ -140,8 +139,6 @@ def learn(grammar_model: ContextSensitiveGrammar,
         print("\nInitial parameter means:")
         print_var_means(sess)
 
-    r_history = None
-
     # Main training loop
     p_final = None
     r_best = -np.inf
@@ -151,10 +148,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
     positional_entropy = np.zeros(shape=(n_epochs, expression_decoder.max_length), dtype=np.float32)
 
     top_samples_per_batch = list()
-
-    start_time = time.time()
-    if verbose:
-        print("-- RUNNING EPOCHS START -------------")
+    print("-- RUNNING EPOCHS START -------------")
 
     for epoch in range(n_epochs):
         # Set of str representations for all Programs ever seen
@@ -174,12 +168,8 @@ def learn(grammar_model: ContextSensitiveGrammar,
         #     print("rewards:", r)
         r_train = r
 
-        # Back up programs to save them properly later
-        controller_programs = grammar_expressions.copy() if save_token_count else None
-
         # Need for Vanilla Policy Gradient (epsilon = null)
         p_train = grammar_expressions
-
 
         if save_positional_entropy:
             positional_entropy[epoch] = np.apply_along_axis(empirical_entropy, 0, actions)
@@ -191,14 +181,12 @@ def learn(grammar_model: ContextSensitiveGrammar,
             for idx in sorted_idx[:one_perc]:
                 top_samples_per_batch.append([epoch, r[idx], repr(grammar_expressions[idx])])
 
-        # Update reward history
-        if r_history is not None:
-            for p in grammar_expressions:
-                key = p.traversal
-                if key in r_history:
-                    r_history[key].append(p.reward)
-                else:
-                    r_history[key] = [p.reward]
+        # Update HOF
+        for p in grammar_expressions:
+            if not p.reward:
+                continue
+            grammar_model.update_hall_of_fame(p)
+
 
         # Store in variables the values for the whole batch (those variables will be modified below)
         r_max = np.max(r)
@@ -282,8 +270,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
             b_train = quantile + ewma
 
         # Compute sequence lengths
-        lengths = np.array([min(len(p.traversal), expression_decoder.max_length)
-                            for p in p_train], dtype=np.int32)
+        lengths = np.array([min(len(p.traversal), expression_decoder.max_length) for p in p_train], dtype=np.int32)
 
         # Create the Batch
         sampled_batch = Batch(actions=actions, obs=obs,
@@ -295,8 +282,6 @@ def learn(grammar_model: ContextSensitiveGrammar,
             pqt_batch = priority_queue.sample_batch(expression_decoder.pqt_batch_size)
         else:
             pqt_batch = None
-
-
 
         # Update the memory queue
         if memory_queue is not None:
@@ -314,11 +299,12 @@ def learn(grammar_model: ContextSensitiveGrammar,
         # Print new best expression
         if verbose and new_r_best:
             print(" Training epoch {}/{}, current best R: {}".format(epoch + 1, n_epochs, prev_r_best))
+            print(f"{p_r_best}")
+            p_r_best.print_all_metrics()
+
             print("\n\t** New best")
-            print(p_r_best)
 
-
-        if early_stopping and p_r_best.reward > 0.999:  # and :
+        if early_stopping and p_r_best.reward > reward_threshold:
             print("Early stopping criteria met; breaking early.")
             break
 
@@ -333,9 +319,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
             print("Ending training after epoch {}/{}, current best R: {:.4f}".format(epoch + 1, n_epochs,
                                                                                      prev_r_best))
 
-        if nevals > dataset_size:
-            break
-        # grammar_model.print_hofs(flag=-2)
+        grammar_model.print_hofs(mode='global', verbose=True)
 
     # Print the priority queue at the end of training
     if verbose and priority_queue is not None:

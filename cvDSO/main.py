@@ -16,28 +16,16 @@ from utils import load_config, create_uniform_generations, create_reward_thresho
 
 averaged_var_y = 10
 threshold_values = {
-    'neg_mse': {'expr_consts_thres': 1e-6, 'expr_obj_thres': 0.01},
-    'neg_nmse': {'expr_consts_thres': 1e-6, 'expr_obj_thres': 0.01 / averaged_var_y},
-    'neg_nrmse': {'expr_consts_thres': 1e-3, 'expr_obj_thres': np.sqrt(0.01 / averaged_var_y)},
-    'neg_rmse': {'expr_consts_thres': 1e-3, 'expr_obj_thres': 0.1},
-    'inv_mse': {'expr_consts_thres': -1 / (1 + 1e-6), 'expr_obj_thres': -1 / (1 + 0.01)},
-    'inv_nmse': {'expr_consts_thres': -1 / (1 + 1e-6), 'expr_obj_thres': -1 / (1 + 0.01 / averaged_var_y)},
-    'inv_nrmse': {'expr_consts_thres': -1 / (1 + 1e-6), 'expr_obj_thres': -1 / (1 + np.sqrt(0.01 / averaged_var_y))},
+    'neg_mse': {'reward_threshold': 1e-6, 'expr_obj_thres': 0.01},
+    'neg_nmse': {'reward_threshold': 1e-6, 'expr_obj_thres': 0.01 / averaged_var_y},
+    'neg_nrmse': {'reward_threshold': 1e-3, 'expr_obj_thres': np.sqrt(0.01 / averaged_var_y)},
+    'neg_rmse': {'reward_threshold': 1e-3, 'expr_obj_thres': 0.1},
+    'inv_mse': {'reward_threshold': 1 / (1 + 1e-6), 'expr_obj_thres': -1 / (1 + 1e-6)},
+    'inv_nmse': {'reward_threshold': 1 / (1 + 1e-6), 'expr_obj_thres': -1 / (1 + 1e-6)},
+    'inv_nrmse': {'reward_threshold': 1 / (1 + 1e-6), 'expr_obj_thres': -1 / (1 + 1e-6)},
 }
 
 
-def train_cvdso(config, config_filename, grammar_model):
-    """Trains DSO and returns dict of reward, expressions"""
-
-    # Train the model
-    model = VSRDeepSymbolicRegression(deepcopy(config), config_filename, grammar_model)
-    start = time.time()
-    print("training start.....")
-    # Setup the model
-    model.setup()
-    result = model.train()
-    used_time = time.time() - start
-    return result, used_time
 
 
 @click.command()
@@ -91,7 +79,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             non_terminal_nodes=nt_nodes,
             max_length=max_len,
             eta=eta,
-            hof_size=100,
+            hof_size=10,
             reward_threhold=reward_thresh[round_idx]
         )
         grammar_model.expr_obj_thres = threshold_values[metric_name]['expr_obj_thres']
@@ -99,9 +87,17 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         grammar_model.program = program
         grammar_model.task.set_vf(round_idx)
         grammar_model.task.set_allowed_inputs(grammar_model.task.get_vf())
-        best_expressions, used_time = train_cvdso(config, config_template, grammar_model)
+        # Train the model
+        """Trains DSO and returns dict of reward, expressions"""
+        model = VSRDeepSymbolicRegression(deepcopy(config), config_template, grammar_model)
+        start = time.time()
+        print("training start.....")
+        # Setup the model
+        model.setup()
+        best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
+        used_time = time.time() - start
 
-        # print("cvDSO time {:.0f} s".format(used_time))
+        print("cvDSO time {:.0f}".format(used_time))
         # print(f"best expression is:", best_expressions[-1])
         # from cvdso.grammar.grammar_program import SymbolicExpression
         # eq = SymbolicExpression(
@@ -120,7 +116,6 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             print(start_symbols)
 
             production_rules = [gi for gi in production_rules if str(round_idx) not in gi]
-
 
 if __name__ == "__main__":
     main()
