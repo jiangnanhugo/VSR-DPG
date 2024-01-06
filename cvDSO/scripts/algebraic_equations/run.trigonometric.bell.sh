@@ -5,10 +5,14 @@ type=$1
 nv=$2
 nt=$3
 datapath=$basepath/data/algebraic_equations/equations_trigonometric
+opt=L-BFGS-B
+noise_type=normal
+noise_scale=0.0
+metric_name=inv_nrmse
 set -x
-for pgn in {0..9};
+for prog in {0..9};
 do
-	eq_name=${type}_nv${nv}_nt${nt}_prog_${pgn}.in
+	eq_name=${type}_nv${nv}_nt${nt}_prog_${prog}.in
     echo "submit $eq_name"
     
     dump_dir=$basepath/result/${type}_nv${nv}_nt${nt}/$(date +%F)
@@ -26,15 +30,17 @@ do
 		sbatch -A standby --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
 #!/bin/bash -l
 
-#SBATCH --job-name="cvDSO-${eq_name}"
-#SBATCH --output=$log_dir/run_${bsl}_${pgn}.out
+#SBATCH --job-name="cvDSO-${type}${nv}${nt}${prog}"
+#SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.${bsl}.cvdso.out
 #SBATCH --constraint=A
 #SBATCH --time=48:00:00
 #SBATCH --mem=4GB
 
 hostname
 
-$py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${type}_${bsl}.json --equation_name $datapath/$eq_name --noise_type 'normal' --noise_scale 0.0  > $dump_dir/$pgn.${bsl}.cvdso.out
+$py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${type}_${bsl}.json --equation_name $datapath/$eq_name \
+--optimizer $opt --metric_name $metric_name \
+--noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 
 EOT
 	done

@@ -39,7 +39,8 @@ do
 hostname
 
 $py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${type}_${bsl}.json --equation_name $datapath/$eq_name \
---optimizer $opt --noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
+--optimizer $opt --metric_name $metric_name \
+--noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 
 EOT
 	done
