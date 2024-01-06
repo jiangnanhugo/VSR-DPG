@@ -16,12 +16,13 @@ do
     echo "submit $eq_name"
     
     dump_dir=$basepath/result/${type}_nv${nv}_nt${nt}/$(date +%F)
-
+	echo $dump_dir
 	if [ ! -d "$dump_dir" ]; then
 		echo "create output dir: $dump_dir"
 		mkdir -p $dump_dir
 	fi
 	log_dir=$basepath/log/$(date +%F)
+	echo $logdir
 	if [ ! -d "$log_dir" ]; then
 		echo "create dir: $log_dir"
 		mkdir -p $log_dir
