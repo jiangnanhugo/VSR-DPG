@@ -5,14 +5,11 @@ import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 np.set_printoptions(precision=4, linewidth=np.inf)
-
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import lambdify
 
 from scipy.optimize import minimize
 from scipy.optimize import basinhopping, shgo, dual_annealing
-
-
 
 from grammar.grammar_utils import pretty_print_expr
 from grammar.production_rules import production_rules_to_expr
@@ -41,13 +38,38 @@ class SymbolicExpression(object):
         print('-' * 30)
 
 
+all_metrics = {
+    # Negative mean squared error
+    "neg_mse": lambda y, y_hat: -np.mean((y - y_hat) ** 2),
+    # Negative root mean squared error
+    "neg_rmse": lambda y, y_hat: -np.sqrt(np.mean((y - y_hat) ** 2)),
+    # Negative normalized mean squared error
+    "neg_nmse": lambda y, y_hat, var_y: -np.mean((y - y_hat) ** 2) / var_y,
+    "log_nmse": lambda y, y_hat, var_y: -np.log10(1e-60 + np.mean((y - y_hat) ** 2) / var_y),
+    # Negative normalized root mean squared error
+    "neg_nrmse": lambda y, y_hat, var_y: -np.sqrt(np.mean((y - y_hat) ** 2) / var_y),
+    # (Protected) inverse mean squared error
+    "inv_mse": lambda y, y_hat: 1 / (1 + np.mean((y - y_hat) ** 2)),
+    # (Protected) inverse normalized mean squared error
+    "inv_nmse": lambda y, y_hat, var_y: 1 / (1 + np.mean((y - y_hat) ** 2) / var_y),
+    # (Protected) inverse normalized root mean squared error
+    "inv_nrmse": lambda y, y_hat, var_y: 1 / (1 + np.sqrt(np.mean((y - y_hat) ** 2) / var_y)),
+    # Pearson correlation coefficient       # Range: [0, 1]
+    "pearson": lambda y, y_hat: scipy.stats.pearsonr(y, y_hat)[0],
+    # Spearman correlation coefficient      # Range: [0, 1]
+    "spearman": lambda y, y_hat: scipy.stats.spearmanr(y, y_hat)[0],
+    # Accuracy based on R2 value.
+    "accuracy(r2)": lambda y, y_hat, var_y, tau: 1 - np.mean((y - y_hat) ** 2) / var_y >= tau,
+}
+
+
 class grammarProgram(object):
     """
     used for optimizing the constants in the expressions.
     """
     evaluate_loss = None
 
-    def __init__(self, optimizer="BFGS", max_opt_iter=100, max_open_constants=20):
+    def __init__(self, optimizer="BFGS", metric_name='inv_nrmse', max_opt_iter=100, max_open_constants=20):
         """
         opt_num_expr:  # number of experiments done for optimization
         max_open_constants: the maximum number of allowed open constants in the expression.
@@ -56,22 +78,26 @@ class grammarProgram(object):
         self.optimizer = optimizer
         self.max_opt_iter = max_opt_iter
         self.max_open_constants = max_open_constants
+        self.metric_name = metric_name
+        self.evaluate_loss = all_metrics[metric_name]
 
-    def fitting_new_expression(self, list_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
+    def fitting_new_expression(self, many_seqs_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
         """
         here we assume the input will be a valid expression
         """
-        one_expr = SymbolicExpression(list_of_rules)
-        reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
-                                                dataX,
-                                                y_true,
-                                                input_var_Xs,
-                                                len(one_expr.traversal))
+        result = []
+        for one_list_rules in many_seqs_of_rules:
+            one_expr = SymbolicExpression(one_list_rules)
+            reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
+                                                    dataX,
+                                                    y_true,
+                                                    input_var_Xs,
+                                                    len(one_expr.traversal))
 
-        one_expr.reward = reward
-        one_expr.fitted_eq = fitted_eq
-
-        return one_expr
+            one_expr.reward = reward
+            one_expr.fitted_eq = fitted_eq
+            result.append(one_expr)
+        return result
 
     def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size=1, eta=0.9999, user_scpeficied_iters=-1, verbose=False):
         """
@@ -94,7 +120,7 @@ class grammarProgram(object):
         # print(f"expr template: {eq}")
         # print(data_X.shape, '\n', data_X[:2, :])
         if 'A' in eq or 'B' in eq:  # not a valid equation
-            return -np.inf, eq,  0, np.inf
+            return -np.inf, eq, 0, np.inf
 
         # count number of constants in equation
         num_changing_consts = eq.count('C')

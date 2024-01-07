@@ -4,4 +4,4 @@ sympy
 scipy
 click
 cryptography
-torch
+zss

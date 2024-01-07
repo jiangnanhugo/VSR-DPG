@@ -48,7 +48,6 @@ class ContextSensitiveGrammar(object):
         self.print_grammar_vocabulary()
         print(f"rules with only terminal symbols: {self.terminal_rules}")
 
-
         # used for output vocabulary
         self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
         self.n_parent_inputs = self.output_vocab_size + 1  # - len(self.terminal_rules)  # Parent sub-lib tokens + empty token
@@ -76,9 +75,8 @@ class ContextSensitiveGrammar(object):
         print('============== GRAMMAR Vocabulary ==============')
         print('{0: >8} {1: >20}'.format('ID', 'NAME'))
         for i in range(len(self.production_rules)):
-            print('{0: >8} {1: >20}'.format(i+1, self.production_rules[i]))
+            print('{0: >8} {1: >20}'.format(i + 1, self.production_rules[i]))
         print('========== END OF GRAMMAR Vocabulary ===========')
-
 
     def valid_production_rules(self, Node):
         # Get index of all possible production rules starting with a given node
@@ -108,17 +106,21 @@ class ContextSensitiveGrammar(object):
         # print(list_of_rules)
         return list_of_rules
 
-    def construct_expression(self, list_of_rules):
-        list_of_rules = [self.start_symbol] + [self.production_rules[li] for li in list_of_rules]
+    def construct_expression(self, many_seq_of_rules):
+        filtered_many_rules = []
+        for one_seq_of_rules in many_seq_of_rules:
+            one_seq_of_rules = [self.start_symbol] + [self.production_rules[li] for li in one_seq_of_rules]
 
-        one_list_of_rules = self.complete_rules(list_of_rules)
-        # print("pruned list_of_rules:", one_list_of_rules)
+            one_list_of_rules = self.complete_rules(one_seq_of_rules)
+            filtered_many_rules.append(one_list_of_rules)
+            # print("pruned list_of_rules:", one_list_of_rules)
         self.task.rand_draw_data_with_X_fixed()
         y_true = self.task.evaluate()
-        one_expression = self.program.fitting_new_expression(one_list_of_rules, self.task.X, y_true, self.input_var_Xs)
-        if one_expression.reward != -np.inf:
-            one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)
-        return one_expression
+        many_expressions = self.program.fitting_new_expression(filtered_many_rules, self.task.X, y_true, self.input_var_Xs)
+        for one_expression in many_expressions:
+            if one_expression.reward != -np.inf:
+                one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)
+        return many_expressions
 
     def freeze_equations(self, best_expressions, stand_alone_constants, next_free_variable):
         """
@@ -149,7 +151,7 @@ class ContextSensitiveGrammar(object):
             optimized_obj.append(opt_obj)
         optimized_constants = np.asarray(optimized_constants)
         # optimized_obj = np.asarray(optimized_obj)
-        print("optimized_obj: ",optimized_obj)
+        print("optimized_obj: ", optimized_obj)
         num_changing_consts = expr_template.count('C')
         is_summary_constants = np.zeros(num_changing_consts, dtype=int)
         if np.max(optimized_obj) <= self.expr_obj_thres:

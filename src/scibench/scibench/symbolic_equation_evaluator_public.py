@@ -6,7 +6,8 @@ from sympy import Symbol
 from sympy import parse_expr
 
 import time
-from scibench.metrics import make_regression_metric, tree_edit_distance
+import dill
+from scibench.metrics import all_metrics, tree_edit_distance
 from scibench.tokens import *
 from scibench.program import *
 
@@ -27,7 +28,7 @@ class Equation_evaluator(object):
             true_equation_filename)
         # metric
         self.metric_name = metric_name
-        self.metric = make_regression_metric(metric_name)
+        self.metric = all_metrics[metric_name]
 
         # noise
         self.noise_type = noise_type
@@ -131,11 +132,11 @@ class Equation_evaluator(object):
         y_true = self.evaluate(X)
         loss_val_dict = {}
         for metric_name in ['neg_nmse', 'neg_nrmse', 'inv_nrmse', 'inv_nmse']:
-            metric = make_regression_metric(metric_name)
+            metric = all_metrics[metric_name]
             loss_val = metric(y_true, y_pred, np.var(y_true))
             loss_val_dict[metric_name] = loss_val
         for metric_name in ['neg_mse', 'neg_rmse', 'inv_mse']:
-            metric = make_regression_metric(metric_name)
+            metric = all_metrics[metric_name]
             loss_val = metric(y_true, y_pred)
             loss_val_dict[metric_name] = loss_val
 

@@ -44,8 +44,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     function_set = data_query_oracle.get_operators_set()
 
     num_iterations = create_uniform_generations(num_per_rounds, nvar)
-    program = grammarProgram(optimizer=optimizer)
-    program.evaluate_loss = data_query_oracle.compute_metric
+    program = grammarProgram(optimizer=optimizer, metric_name=metric_name)
 
     regress_dataset_size = 2048
     task = RegressTask(regress_dataset_size,

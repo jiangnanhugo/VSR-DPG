@@ -1,7 +1,7 @@
 """Defines main training loop for deep symbolic optimization."""
 
 import os
-import time
+
 from itertools import compress
 
 import tensorflow as tf
@@ -15,6 +15,10 @@ from grammar.variance import quantile_variance
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+
+
+
 
 """
   
@@ -126,7 +130,9 @@ def learn(grammar_model: ContextSensitiveGrammar,
         actions, obs = expression_decoder.sample(warm_start)
         print("sampled actions:", actions)
         # construct program based on the input token indices
-        grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
+
+
+        grammar_expressions = grammar_model.construct_expression(actions)
         rewards = np.array([p.r for p in grammar_expressions])
         expr_lengths = np.array([len(p.traversal.split(";")) for p in grammar_expressions])
         sampled_batch = Batch(actions=actions, obs=obs,
@@ -160,7 +166,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
         actions, obs = expression_decoder.sample(batch_size)
         # if verbose:
         #     print("sampled actions:", actions)
-        grammar_expressions = [grammar_model.construct_expression(a) for a in actions]
+        grammar_expressions =  grammar_model.construct_expression(actions)
         nevals += batch_size
         # Compute rewards (or retrieve cached rewards)
         r = np.array([p.reward for p in grammar_expressions])
@@ -186,7 +192,6 @@ def learn(grammar_model: ContextSensitiveGrammar,
             if not p.reward:
                 continue
             grammar_model.update_hall_of_fame(p)
-
 
         # Store in variables the values for the whole batch (those variables will be modified below)
         r_max = np.max(r)

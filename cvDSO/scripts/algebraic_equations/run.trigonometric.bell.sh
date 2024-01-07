@@ -36,7 +36,7 @@ do
 #SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.${bsl}.cvdso.out
 #SBATCH --constraint=A
 #SBATCH --time=48:00:00
-#SBATCH --mem=4GB
+#SBATCH --mem=8GB
 
 hostname
 
