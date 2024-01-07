@@ -287,12 +287,17 @@ class ContextSensitiveGrammar(object):
             elif one_fitted_expression.traversal not in [x.traversal for x in self.hall_of_fame]:
                 if len(self.hall_of_fame) < self.hof_size:
                     self.hall_of_fame.append(one_fitted_expression)
-                    self.hall_of_fame = sorted(self.hall_of_fame, key=lambda x: x.reward)
+                    # sorting the list in ascending order
+                    self.hall_of_fame = sorted(self.hall_of_fame, key=lambda x: x.reward, reverse=False)
                 else:
                     if one_fitted_expression.reward > self.hall_of_fame[-1].reward:
-                        self.hall_of_fame = sorted(self.hall_of_fame[1:] + [one_fitted_expression], key=lambda x: x.reward)
+                        # sorting the list in ascending order
+                        self.hall_of_fame = sorted(self.hall_of_fame[1:] + [one_fitted_expression], key=lambda x: x.reward, reverse=False)
 
     def print_hofs(self, mode: str, verbose=False):
+        """
+        mode: if global, then we rank on no variable controlled.
+        """
         if mode == 'global':
             old_vf = copy.copy(self.task.get_vf())
             self.program.vf = [1, ] * self.nvars
@@ -301,11 +306,10 @@ class ContextSensitiveGrammar(object):
         self.task.rand_draw_data_with_X_fixed()
         print(f"PRINT HOF (free variables={self.task.fixed_column})")
         print("=" * 20)
-        for pr in self.hall_of_fame[-len(self.hall_of_fame):]:
+        for pr in self.hall_of_fame[:self.hof_size]:
             if verbose:
                 print('        ', pr, end="\n")
                 pr.print_all_metrics()
-                # self.print_reward_function_all_metrics(pr[2])
             else:
                 print('        ', pr, end="\n")
         print("=" * 20)
@@ -318,8 +322,8 @@ class ContextSensitiveGrammar(object):
         """used for print the error for all metrics between the predicted program `p` and true program."""
         y_hat = execute(expr_str, self.task.X.T, self.input_var_Xs)
         dict_of_result = self.task.data_query_oracle._evaluate_all_losses(self.task.X, y_hat)
-        # dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(
-        #     expr_str)
+        dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(
+            expr_str)
         if verbose:
             print('-' * 30)
             for mertic_name in dict_of_result:

@@ -89,7 +89,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         grammar_model.task.set_allowed_inputs(grammar_model.task.get_vf())
         # Train the model
         """Trains DSO and returns dict of reward, expressions"""
-        model = VSRDeepSymbolicRegression(deepcopy(config), config_template, grammar_model)
+        model = VSRDeepSymbolicRegression(config, grammar_model)
         start = time.time()
         print("training start.....")
         # Setup the model
@@ -97,15 +97,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
         used_time = time.time() - start
 
-        print("cvdso time {:.0f}".format(used_time))
-        # print(f"best expression is:", best_expressions[-1])
-        # from cvdso.grammar.grammar_program import SymbolicExpression
-        # eq = SymbolicExpression(
-        #     'f->A;A->(A+A);A->C*X0;A->C;A->C;A->(A-A);A->C;A->(A-A);A->(A+A);A->C;A->C;A->(A+A);A->(A-A);A->C;A->(A+A);A->(A+A);A->C*sin(X0);A->(A+A);A->A*A;A->C*cos(X0);A->(A-A)')
-        # eq.reward = 0.9999999395508058
-        # eq.expr_template = '(C*X0+C)'
-        # eq.fitted_eq = "0.07876558963752647*X0 - 0.5078745192475905"
-        # best_expressions = [eq]
+        print("cvdso time {:.0f} sec".format(used_time))
         if round_idx < len(num_iterations) - 1:
             # the last round does not need freeze
             start_symbols, _, stand_alone_constants = grammar_model.freeze_equations(best_expressions,
@@ -116,6 +108,10 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             print(start_symbols)
 
             production_rules = [gi for gi in production_rules if str(round_idx) not in gi]
+
+        # print("print result on global settings")
+        grammar_model.print_hofs(mode='global',verbose=True)
+
 
 if __name__ == "__main__":
     main()

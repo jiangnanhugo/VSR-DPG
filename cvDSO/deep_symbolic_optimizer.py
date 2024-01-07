@@ -25,12 +25,11 @@ class VSRDeepSymbolicRegression(object):
     training configuration.
     """
 
-    def __init__(self, config, config_filename, cfg):
+    def __init__(self, config, cfg):
         """config : dict or str. Config dictionary or path to JSON.
         cfg: context-sensitive-grammar
         """
         # set config
-        self.config_filename = config_filename
         self.set_config(config)
         self.sess = None
         self.cfg = cfg
@@ -60,7 +59,9 @@ class VSRDeepSymbolicRegression(object):
                                                           **self.config_expression_decoder)
 
     def train(self, reward_threshold):
-        # Train the model
+        """
+        return the best predicted expression under the current controlled variable settings.
+        """
         print("extra arguments:\n {}".format(self.config_training))
 
         result_dict = learn(self.cfg,
