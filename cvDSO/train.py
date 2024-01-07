@@ -253,7 +253,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
         # Clip bounds of rewards to prevent NaNs in gradient descent
         r = np.clip(r, -1e6, 1e6)
         r_train = np.clip(r_train, -1e6, 1e6)
-
+        print("r_train shape:", r_train.shape)
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
@@ -339,4 +339,4 @@ def print_var_means(sess):
     tvars_vals = sess.run(tvars)
     for var, val in zip(tvars, tvars_vals):
         print(var.name, "mean:", val.mean(), "var:", val.var())
-        print(val)
+        # print(val)

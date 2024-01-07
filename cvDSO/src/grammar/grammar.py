@@ -28,7 +28,7 @@ class ContextSensitiveGrammar(object):
     OBS_DIM = 4  # action, parent, sibling, dangling
 
     def __init__(self, nvars, production_rules, start_symbols, non_terminal_nodes,
-                 max_length, eta,
+                 max_length,
                  hof_size, reward_threhold):
         # number of input variables
         self.nvars = nvars
@@ -42,11 +42,12 @@ class ContextSensitiveGrammar(object):
         self.hof_size = hof_size
         self.reward_threhold = reward_threhold
         self.hall_of_fame = []
-        self.eta = eta
         self.allowed_grammar = np.ones(len(self.production_rules), dtype=bool)
         # those rules has terminal symbol on the right-hand side
         self.terminal_rules = [g for g in self.production_rules if sum([nt in g[3:] for nt in self.non_terminal_nodes]) == 0]
+        self.print_grammar_vocabulary()
         print(f"rules with only terminal symbols: {self.terminal_rules}")
+
 
         # used for output vocabulary
         self.n_action_inputs = self.output_vocab_size + 1  # Library tokens + empty token
@@ -73,10 +74,11 @@ class ContextSensitiveGrammar(object):
 
     def print_grammar_vocabulary(self):
         print('============== GRAMMAR Vocabulary ==============')
-        print('{0: >8} {1: >10} {2: >8}'.format('ID', 'NAME', 'ALLOWED'))
-        for i in range(self.nvars):
-            print('{} {}'.format(i, self.production_rules[i][i], self.allowed_grammar[i]))
+        print('{0: >8} {1: >20}'.format('ID', 'NAME'))
+        for i in range(len(self.production_rules)):
+            print('{0: >8} {1: >20}'.format(i+1, self.production_rules[i]))
         print('========== END OF GRAMMAR Vocabulary ===========')
+
 
     def valid_production_rules(self, Node):
         # Get index of all possible production rules starting with a given node

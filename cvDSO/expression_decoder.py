@@ -294,10 +294,10 @@ class NeuralExpressionDecoder(object):
 
     def get_next_obs(self, actions, obs):
         print(f"actions: {actions.shape} obs: {obs.shape}")
-        print("actions: ", actions)
-        print("parent: ", obs[:,1])
-        print("sibling: ", obs[:, 2])
-        print("dangling: ", obs[:, 3])
+        # print("actions: ", actions)
+        # print("parent: ", obs[:,1])
+        # print("sibling: ", obs[:, 2])
+        # print("dangling: ", obs[:, 3])
         dangling = obs[:, 3]  # Shape of obs: (?, 4)
 
         action = actions[:, -1]  # Current action
@@ -307,10 +307,10 @@ class NeuralExpressionDecoder(object):
                                            empty_sibling=self.cfg.EMPTY_SIBLING)
 
         # Update dangling with (arity - 1) for each element in action
-        print("parent {}, sibling {}".format(parent, sibling))
+        # print("parent {}, sibling {}".format(parent, sibling))
         next_obs = np.stack([action, parent, sibling, dangling], axis=1)  # (?, 4)
         next_obs = next_obs.astype(np.float32)
-        print("next_obs:", next_obs)
+        # print("next_obs:", next_obs)
         return next_obs
 
     def create_summaries(self, pqt, pqt_use_pg, pg_loss, pqt_loss, entropy_loss, r):

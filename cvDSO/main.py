@@ -26,8 +26,6 @@ threshold_values = {
 }
 
 
-
-
 @click.command()
 @click.argument('config_template', default="")
 @click.option('--equation_name', default=None, type=str, help="Name of equation")
@@ -57,14 +55,11 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
 
     # get basic production rules
     production_rules = get_production_rules(0, function_set)
-    # print("The production rules are:", production_rules)
     reward_thresh = create_reward_threshold(10, len(num_iterations))
     nt_nodes = ['A']
-    eta = 0.999
     start_symbols = ['A']
     # Start training
     stand_alone_constants = []
-    # Farm out the work
     g_start = time.time()
     for round_idx in range(len(num_iterations)):
         print('++++++++++++ ROUND {}  ++++++++++++'.format(round_idx))
@@ -79,7 +74,6 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             start_symbols=start_symbols[0],
             non_terminal_nodes=nt_nodes,
             max_length=max_len,
-            eta=eta,
             hof_size=10,
             reward_threhold=reward_thresh[round_idx]
         )
@@ -112,9 +106,9 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             production_rules = [gi for gi in production_rules if str(round_idx) not in gi]
 
         # print("print result on global settings")
-        grammar_model.print_hofs(mode='global',verbose=True)
+        grammar_model.print_hofs(mode='global', verbose=True)
     end_time = time.time() - g_start
-    print("cvdso time {} mins".format(np.round(end_time / 60, 3)))
+    print("Final cvdso time {} mins".format(np.round(end_time / 60, 3)))
 
 
 if __name__ == "__main__":

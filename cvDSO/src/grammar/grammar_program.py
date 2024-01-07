@@ -12,6 +12,8 @@ from sympy import lambdify
 from scipy.optimize import minimize
 from scipy.optimize import basinhopping, shgo, dual_annealing
 
+
+
 from grammar.grammar_utils import pretty_print_expr
 from grammar.production_rules import production_rules_to_expr
 
@@ -100,7 +102,7 @@ class grammarProgram(object):
         if num_changing_consts == 0:  # zero constant
             var_ytrue = np.var(y_true)
             y_pred = execute(eq, data_X.T, input_var_Xs)
-        elif num_changing_consts >= 20:  # discourage over complicated numerical estimations
+        elif num_changing_consts >= self.max_open_constants:  # discourage over complicated numerical estimations
             return -np.inf, eq, t_optimized_constants, t_optimized_obj
         else:
             c_lst = ['c' + str(i) for i in range(num_changing_consts)]
@@ -185,7 +187,6 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
     except KeyError as e:
         # print(e, expr)
         y_hat = np.ones(data_X.shape[-1]) * np.infty
-
     return y_hat
 
 

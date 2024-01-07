@@ -4,11 +4,6 @@
       // supported metrics.
       "metric" : "inv_nrmse",
       "metric_params" : [1.0],
-
-      // NRMSE threshold for early stopping. This is useful for noiseless
-      // benchmark problems when DSO discovers the true solution.
-      "threshold" : 1e-12,
-
       // With protected=false, floating-point errors (e.g. log of negative
       // number) will simply returns a minimal reward. With protected=true,
       // "protected" functions will prevent floating-point errors, but may
@@ -23,8 +18,8 @@
    "training" : {
       "n_epochs": 100,
       "dataset_size":2500,
-      "batch_size" : 1024,
-      "epsilon" : 0.02,
+      "batch_size" : 128,
+      "epsilon" : 0.2,
       // <R> is the sample average _after_ epsilon sub-sampling and  R_e is the (1-epsilon)-quantile estimate.
       // (1) "ewma_R" : b = EWMA(<R>) (2) "R_e" : b = R_e (3) "ewma_R_e" : b = EWMA(R_e) (4) "combined" : b = R_e + EWMA(<R> - R_e)
       "baseline" : "R_e"
@@ -48,6 +43,7 @@
       // RNN architectural hyperparameters.
       "cell" : "lstm",
       "num_layers" : 1,
-      "num_units" : 32
+      "num_units" : 128,
+      "debug": 2
    }
 }
