@@ -1,7 +1,6 @@
 """Parallelized, single-point launch script to run DSO on a set of benchmarks."""
 
 import time
-from copy import deepcopy
 import click
 
 from scibench.symbolic_data_generator import *

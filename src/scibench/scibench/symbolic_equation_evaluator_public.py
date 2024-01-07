@@ -6,7 +6,6 @@ from sympy import Symbol
 from sympy import parse_expr
 
 import time
-import dill
 from scibench.metrics import all_metrics, tree_edit_distance
 from scibench.tokens import *
 from scibench.program import *
