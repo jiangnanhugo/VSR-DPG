@@ -1,12 +1,6 @@
 {
    // Hyperparameters related to the main training loop.
    "training" : {
-      // These parameters control the length of the run.
-      "n_epochs": 100,
-      // dataset size is used to fitting open constants
-      "dataset_size":15000,
-      // used for sampling expressions from the neural decoder
-      "batch_size" : 1000,
 
       // To use the risk-seeking policy gradient, set epsilon < 1.0 and
       // baseline="R_e"
