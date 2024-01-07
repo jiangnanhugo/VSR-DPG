@@ -65,6 +65,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     # Start training
     stand_alone_constants = []
     # Farm out the work
+    g_start = time.time()
     for round_idx in range(len(num_iterations)):
         print('++++++++++++ ROUND {}  ++++++++++++'.format(round_idx))
 
@@ -95,9 +96,10 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
         # Setup the model
         model.setup()
         best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
-        used_time = time.time() - start
+        end_time = time.time() - start
 
-        print("cvdso time {:.0f} sec".format(used_time))
+        print("cvdso time {} mins".format(np.round(end_time / 60, 3)))
+
         if round_idx < len(num_iterations) - 1:
             # the last round does not need freeze
             start_symbols, _, stand_alone_constants = grammar_model.freeze_equations(best_expressions,
@@ -111,6 +113,8 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
 
         # print("print result on global settings")
         grammar_model.print_hofs(mode='global',verbose=True)
+    end_time = time.time() - g_start
+    print("cvdso time {} mins".format(np.round(end_time / 60, 3)))
 
 
 if __name__ == "__main__":
