@@ -71,7 +71,6 @@ class RegressTask(object):
     def evaluate(self):
         return self.data_query_oracle.evaluate(self.X)
 
-
     def reward_function(self, y_hat):
 
         return self.data_query_oracle._evaluate_loss(self.X, y_hat)

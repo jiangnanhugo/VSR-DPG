@@ -116,7 +116,7 @@ class ContextSensitiveGrammar(object):
             # print("pruned list_of_rules:", one_list_of_rules)
         self.task.rand_draw_data_with_X_fixed()
         y_true = self.task.evaluate()
-        many_expressions = self.program.fitting_new_expression(filtered_many_rules, self.task.X, y_true, self.input_var_Xs)
+        many_expressions = self.program.fitting_new_expressions_in_parallel(filtered_many_rules, self.task.X, y_true, self.input_var_Xs)
         for one_expression in many_expressions:
             if one_expression.reward != -np.inf:
                 one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)

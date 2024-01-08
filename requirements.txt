@@ -1,3 +1,4 @@
 memray
 zss
 pyyaml
+pathos

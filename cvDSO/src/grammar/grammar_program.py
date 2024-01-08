@@ -1,4 +1,5 @@
 """Class for symbolic expression optimization."""
+import time
 
 import numpy as np
 import warnings
@@ -13,9 +14,11 @@ from scipy.optimize import basinhopping, shgo, dual_annealing
 
 from grammar.grammar_utils import pretty_print_expr
 from grammar.production_rules import production_rules_to_expr
-
+from grammar.metrics import all_metrics
+from pathos.multiprocessing import ProcessPool
 
 class SymbolicExpression(object):
+
     def __init__(self, list_of_rules):
         self.traversal = list_of_rules
         self.expr_template = production_rules_to_expr(list_of_rules)
@@ -38,31 +41,6 @@ class SymbolicExpression(object):
         print('-' * 30)
 
 
-all_metrics = {
-    # Negative mean squared error
-    "neg_mse": lambda y, y_hat: -np.mean((y - y_hat) ** 2),
-    # Negative root mean squared error
-    "neg_rmse": lambda y, y_hat: -np.sqrt(np.mean((y - y_hat) ** 2)),
-    # Negative normalized mean squared error
-    "neg_nmse": lambda y, y_hat, var_y: -np.mean((y - y_hat) ** 2) / var_y,
-    "log_nmse": lambda y, y_hat, var_y: -np.log10(1e-60 + np.mean((y - y_hat) ** 2) / var_y),
-    # Negative normalized root mean squared error
-    "neg_nrmse": lambda y, y_hat, var_y: -np.sqrt(np.mean((y - y_hat) ** 2) / var_y),
-    # (Protected) inverse mean squared error
-    "inv_mse": lambda y, y_hat: 1 / (1 + np.mean((y - y_hat) ** 2)),
-    # (Protected) inverse normalized mean squared error
-    "inv_nmse": lambda y, y_hat, var_y: 1 / (1 + np.mean((y - y_hat) ** 2) / var_y),
-    # (Protected) inverse normalized root mean squared error
-    "inv_nrmse": lambda y, y_hat, var_y: 1 / (1 + np.sqrt(np.mean((y - y_hat) ** 2) / var_y)),
-    # Pearson correlation coefficient       # Range: [0, 1]
-    "pearson": lambda y, y_hat: scipy.stats.pearsonr(y, y_hat)[0],
-    # Spearman correlation coefficient      # Range: [0, 1]
-    "spearman": lambda y, y_hat: scipy.stats.spearmanr(y, y_hat)[0],
-    # Accuracy based on R2 value.
-    "accuracy(r2)": lambda y, y_hat, var_y, tau: 1 - np.mean((y - y_hat) ** 2) / var_y >= tau,
-}
-
-
 class grammarProgram(object):
     """
     used for optimizing the constants in the expressions.
@@ -81,7 +59,7 @@ class grammarProgram(object):
         self.metric_name = metric_name
         self.evaluate_loss = all_metrics[metric_name]
 
-    def fitting_new_expression(self, many_seqs_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
+    def fitting_new_expressions(self, many_seqs_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
         """
         here we assume the input will be a valid expression
         """
@@ -99,93 +77,129 @@ class grammarProgram(object):
             result.append(one_expr)
         return result
 
-    def optimize(self, eq, data_X, y_true, input_var_Xs, tree_size=1, eta=0.9999, user_scpeficied_iters=-1, verbose=False):
+    def fitting_new_expressions_in_parallel(self, many_seqs_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
         """
-        Calculate reward score for a complete parse tree
-        If placeholder C is in the equation, also execute estimation for C
-        Reward = 1 / (1 + MSE) * Penalty ** num_term
-
-        Parameters
-        ----------
-        eq : Str object. the discovered equation (with placeholders for coefficients).
-        tree_size: number of production rules in the complete parse tree.
-        (data_X, y_true) : 2-d numpy array.
-
-        Returns
-        -------
-        score: discovered equations.
-        eq: discovered equations with estimated numerical values.
+        here we assume the input will be a valid expression
         """
-        eq = simplify_template(eq)
-        # print(f"expr template: {eq}")
-        # print(data_X.shape, '\n', data_X[:2, :])
-        if 'A' in eq or 'B' in eq:  # not a valid equation
+
+        pool = ProcessPool(nodes=10)
+
+        # for one_list_rules in many_seqs_of_rules:
+        many_expr_tempaltes = [SymbolicExpression(one_rules) for one_rules in many_seqs_of_rules]
+
+        # result.append(one_expr)
+        dataXes = [dataX for _ in range(len(many_expr_tempaltes))]
+        y_trues = [y_true for _ in range(len(many_expr_tempaltes))]
+        input_var_Xes = [input_var_Xs for _ in range(len(many_expr_tempaltes))]
+        evaluate_losses = [self.evaluate_loss for _ in range(len(many_expr_tempaltes))]
+        max_open_constantes = [self.max_open_constants for _ in range(len(many_expr_tempaltes))]
+        max_opt_iteres = [self.max_opt_iter for _ in range(len(many_expr_tempaltes))]
+        optimizeres = [self.optimizer for _ in range(len(many_expr_tempaltes))]
+
+        result = pool.map(fit_one_expr, many_expr_tempaltes, dataXes, y_trues, input_var_Xes, evaluate_losses,
+                          max_open_constantes, max_opt_iteres, optimizeres)
+
+        return result
+
+
+def fit_one_expr(one_expr, dataX, y_true, input_var_Xs, evaluate_loss, max_open_constants, max_opt_iter, optimizer_name):
+    reward, fitted_eq, _, _ = optimize(one_expr.expr_template,
+                                       dataX,
+                                       y_true,
+                                       input_var_Xs,
+                                       evaluate_loss, max_open_constants, max_opt_iter, optimizer_name)
+
+    one_expr.reward = reward
+    one_expr.fitted_eq = fitted_eq
+    return one_expr
+
+
+def optimize(eq, data_X, y_true, input_var_Xs, evaluate_loss, max_open_constants, max_opt_iter, optimizer_name, user_scpeficied_iters=-1,
+             verbose=False):
+    """
+    Calculate reward score for a complete parse tree
+    If placeholder C is in the equation, also execute estimation for C
+    Reward = 1 / (1 + MSE) * Penalty ** num_term
+
+    Parameters
+    ----------
+    eq : Str object. the discovered equation (with placeholders for coefficients).
+    tree_size: number of production rules in the complete parse tree.
+    (data_X, y_true) : 2-d numpy array.
+
+    Returns
+    -------
+    score: discovered equations.
+    eq: discovered equations with estimated numerical values.
+    """
+    eq = simplify_template(eq)
+    if 'A' in eq or 'B' in eq:  # not a valid equation
+        return -np.inf, eq, 0, np.inf
+
+    # count number of constants in equation
+    num_changing_consts = eq.count('C')
+    t_optimized_constants, t_optimized_obj = 0, np.inf
+    if num_changing_consts == 0:  # zero constant
+        var_ytrue = np.var(y_true)
+        y_pred = execute(eq, data_X.T, input_var_Xs)
+    elif num_changing_consts >= max_open_constants:  # discourage over complicated numerical estimations
+        return -np.inf, eq, t_optimized_constants, t_optimized_obj
+    else:
+        c_lst = ['c' + str(i) for i in range(num_changing_consts)]
+        for c in c_lst:
+            eq = eq.replace('C', c, 1)
+
+        def f(consts: list):
+            eq_est = eq
+            for i in range(len(consts)):
+                eq_est = eq_est.replace('c' + str(i), str(consts[i]), 1)
+            eq_est = eq_est.replace('+ -', '-')
+            eq_est = eq_est.replace('- -', '+')
+            eq_est = eq_est.replace('- +', '-')
+            eq_est = eq_est.replace('+ +', '+')
+            y_pred = execute(eq_est, data_X.T, input_var_Xs)
+            var_ytrue = np.var(y_true)
+            return -evaluate_loss(y_pred, y_true, var_ytrue)
+
+        # do more than one experiment,
+        x0 = np.random.rand(len(c_lst))
+        try:
+            max_iter = max_opt_iter
+            if user_scpeficied_iters > 0:
+                max_iter = user_scpeficied_iters
+            opt_result = scipy_minimize(f, x0, optimizer_name, num_changing_consts, max_iter)
+            t_optimized_constants = opt_result['x']
+            c_lst = t_optimized_constants.tolist()
+            t_optimized_obj = opt_result['fun']
+
+            if verbose:
+                print(opt_result)
+            eq_est = eq
+
+            for i in range(len(c_lst)):
+                est_c = np.mean(c_lst[i])
+                if abs(est_c) < 1e-5:
+                    est_c = 0
+                eq_est = eq_est.replace('c' + str(i), str(est_c), 1)
+            eq_est = eq_est.replace('+ -', '-')
+            eq_est = eq_est.replace('- -', '+')
+            eq_est = eq_est.replace('- +', '-')
+            eq_est = eq_est.replace('+ +', '+')
+
+            y_pred = execute(eq_est, data_X.T, input_var_Xs)
+            var_ytrue = np.var(y_true)
+
+            eq = pretty_print_expr(parse_expr(eq_est))
+
+            print('\t loss:', -evaluate_loss(y_pred, y_true, var_ytrue), '\t fitted eq:', eq)
+        except Exception as e:
+            print(e)
             return -np.inf, eq, 0, np.inf
 
-        # count number of constants in equation
-        num_changing_consts = eq.count('C')
-        t_optimized_constants, t_optimized_obj = 0, np.inf
-        if num_changing_consts == 0:  # zero constant
-            var_ytrue = np.var(y_true)
-            y_pred = execute(eq, data_X.T, input_var_Xs)
-        elif num_changing_consts >= self.max_open_constants:  # discourage over complicated numerical estimations
-            return -np.inf, eq, t_optimized_constants, t_optimized_obj
-        else:
-            c_lst = ['c' + str(i) for i in range(num_changing_consts)]
-            for c in c_lst:
-                eq = eq.replace('C', c, 1)
+    # r = eta ** tree_size * float(-np.log10(1e-60 - self.evaluate_loss(y_pred, y_true, var_ytrue)))
+    reward = evaluate_loss(y_pred, y_true, var_ytrue)
 
-            def f(consts: list):
-                eq_est = eq
-                for i in range(len(consts)):
-                    eq_est = eq_est.replace('c' + str(i), str(consts[i]), 1)
-                eq_est = eq_est.replace('+ -', '-')
-                eq_est = eq_est.replace('- -', '+')
-                eq_est = eq_est.replace('- +', '-')
-                eq_est = eq_est.replace('+ +', '+')
-                y_pred = execute(eq_est, data_X.T, input_var_Xs)
-                var_ytrue = np.var(y_true)
-                return -self.evaluate_loss(y_pred, y_true, var_ytrue)
-
-            # do more than one experiment,
-            x0 = np.random.rand(len(c_lst))
-            try:
-                max_iter = self.max_opt_iter
-                if user_scpeficied_iters > 0:
-                    max_iter = user_scpeficied_iters
-                opt_result = scipy_minimize(f, x0, self.optimizer, num_changing_consts, max_iter)
-                t_optimized_constants = opt_result['x']
-                c_lst = t_optimized_constants.tolist()
-                t_optimized_obj = opt_result['fun']
-
-                if verbose:
-                    print(opt_result)
-                eq_est = eq
-
-                for i in range(len(c_lst)):
-                    est_c = np.mean(c_lst[i])
-                    if abs(est_c) < 1e-5:
-                        est_c = 0
-                    eq_est = eq_est.replace('c' + str(i), str(est_c), 1)
-                eq_est = eq_est.replace('+ -', '-')
-                eq_est = eq_est.replace('- -', '+')
-                eq_est = eq_est.replace('- +', '-')
-                eq_est = eq_est.replace('+ +', '+')
-
-                y_pred = execute(eq_est, data_X.T, input_var_Xs)
-                var_ytrue = np.var(y_true)
-
-                eq = pretty_print_expr(parse_expr(eq_est))
-
-                print('\t loss:', -self.evaluate_loss(y_pred, y_true, var_ytrue), '\t fitted eq:', eq)
-            except Exception as e:
-                print(e)
-                return -np.inf, eq, 0, np.inf
-
-        # r = eta ** tree_size * float(-np.log10(1e-60 - self.evaluate_loss(y_pred, y_true, var_ytrue)))
-        reward = self.evaluate_loss(y_pred, y_true, var_ytrue)
-
-        return reward, eq, t_optimized_constants, t_optimized_obj
+    return reward, eq, t_optimized_constants, t_optimized_obj
 
 
 def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
