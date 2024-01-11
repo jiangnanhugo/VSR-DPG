@@ -160,35 +160,6 @@ encoder_input = torch.Tensor(dataset).unsqueeze(0).unsqueeze(-1)
 decoder_output = decode_with_transformer(transformer, encoder_input)
 decoder_tokens = translate_integers_into_tokens(decoder_output[0])
 sympy_pred = from_sequence_to_sympy(decoder_tokens)
-sympy_pred
-
-
-# In[20]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
+print(sympy_pred)
 
 
