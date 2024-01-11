@@ -31,7 +31,7 @@ for prog in {0..9}; do
 			sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=$n_cores <<EOT
 #!/bin/bash -l
 
-#SBATCH --job-name="cvDSO-${type}${totalvars}_${prog}_$rand"
+#SBATCH --job-name="cvDSO-${type}${totalvars}_${prog}_${rand}"
 #SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.${bsl}.cvdso.out
 #SBATCH --constraint=A
 #SBATCH --time=48:00:00
@@ -39,7 +39,7 @@ for prog in {0..9}; do
 hostname
 
 $py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${bsl}.json --equation_name $datapath/$eq_name \
---optimizer $opt --metric_name $metric_name --n_cores $n_cores--noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.rand${rand}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
+--optimizer $opt --metric_name $metric_name --n_cores $n_cores --noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.rand${rand}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 
 EOT
 		done
