@@ -26,6 +26,6 @@ do
 
 	for bsl in DSR; do
 		$py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${bsl}.json --equation_name $datapath/$eq_name \
-		--noise_type normal --noise_scale 0.0 #>$dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
+		--noise_type normal --noise_scale 0.0 --n_cores 4 #>$dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 	done
 done

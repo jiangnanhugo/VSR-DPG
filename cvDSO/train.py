@@ -305,7 +305,6 @@ def learn(grammar_model: ContextSensitiveGrammar,
         if verbose and new_r_best:
             print(" Training epoch {}/{}, current best R: {}".format(epoch + 1, n_epochs, prev_r_best))
             print(f"{p_r_best}")
-            p_r_best.print_all_metrics()
 
             print("\n\t** New best")
 

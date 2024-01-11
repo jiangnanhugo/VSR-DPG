@@ -187,7 +187,7 @@ class ContextSensitiveGrammar(object):
                     self.task.rand_draw_X_fixed_with_index(next_free_variable)
                     y_true = self.task.evaluate()
                     _, eq, opt_consts, opt_obj = optimize(
-                        expr_template,
+                        new_expr_template,
                         self.task.X,
                         y_true,
                         self.input_var_Xs,
