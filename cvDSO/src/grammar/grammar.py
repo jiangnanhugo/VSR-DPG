@@ -117,8 +117,12 @@ class ContextSensitiveGrammar(object):
             # print("pruned list_of_rules:", one_list_of_rules)
         self.task.rand_draw_data_with_X_fixed()
         y_true = self.task.evaluate()
-        many_expressions = self.program.fitting_new_expressions_in_parallel(filtered_many_rules, self.task.X, y_true,
-                                                                            self.input_var_Xs)
+        if self.program.n_cores == 1:
+            many_expressions = self.program.fitting_new_expressions(filtered_many_rules, self.task.X, y_true,
+                                                                    self.input_var_Xs)
+        elif self.program.n_cores > 2:
+            many_expressions = self.program.fitting_new_expressions_in_parallel(filtered_many_rules, self.task.X, y_true,
+                                                                                self.input_var_Xs)
         for one_expression in many_expressions:
             if one_expression.reward != -np.inf:
                 one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)

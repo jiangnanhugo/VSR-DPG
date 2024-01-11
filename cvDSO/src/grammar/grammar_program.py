@@ -88,9 +88,6 @@ class grammarProgram(object):
         """
         here we assume the input will be a valid expression
         """
-        print("total CPU cores:", psutil.cpu_count())
-        print('MEMORY\n------')
-        pprint_ntuple(psutil.virtual_memory())
         pool = ProcessPool(nodes=self.n_cores)
 
         # for one_list_rules in many_seqs_of_rules:
