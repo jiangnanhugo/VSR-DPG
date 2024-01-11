@@ -3,7 +3,7 @@ import numpy as np
 from sympy import Symbol
 from sympy.parsing.sympy_parser import parse_expr
 
-from grammar.grammar_program import execute, SymbolicExpression
+from grammar.grammar_program import execute, SymbolicExpression, optimize
 from grammar.grammar_utils import pretty_print_expr, expression_to_template, nth_repl
 
 
@@ -44,7 +44,8 @@ class ContextSensitiveGrammar(object):
         self.hall_of_fame = []
         self.allowed_grammar = np.ones(len(self.production_rules), dtype=bool)
         # those rules has terminal symbol on the right-hand side
-        self.terminal_rules = [g for g in self.production_rules if sum([nt in g[3:] for nt in self.non_terminal_nodes]) == 0]
+        self.terminal_rules = [g for g in self.production_rules if
+                               sum([nt in g[3:] for nt in self.non_terminal_nodes]) == 0]
         self.print_grammar_vocabulary()
         print(f"rules with only terminal symbols: {self.terminal_rules}")
 
@@ -116,7 +117,8 @@ class ContextSensitiveGrammar(object):
             # print("pruned list_of_rules:", one_list_of_rules)
         self.task.rand_draw_data_with_X_fixed()
         y_true = self.task.evaluate()
-        many_expressions = self.program.fitting_new_expressions_in_parallel(filtered_many_rules, self.task.X, y_true, self.input_var_Xs)
+        many_expressions = self.program.fitting_new_expressions_in_parallel(filtered_many_rules, self.task.X, y_true,
+                                                                            self.input_var_Xs)
         for one_expression in many_expressions:
             if one_expression.reward != -np.inf:
                 one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)
@@ -141,11 +143,15 @@ class ContextSensitiveGrammar(object):
             self.task.rand_draw_X_fixed()
             self.task.rand_draw_data_with_X_fixed()
             y_true = self.task.evaluate()
-            _, eq, opt_consts, opt_obj = self.program.optimize(expr_template,
-                                                               self.task.X,
-                                                               y_true,
-                                                               self.input_var_Xs,
-                                                               user_scpeficied_iters=2000)
+            _, eq, opt_consts, opt_obj = optimize(
+                expr_template,
+                self.task.X,
+                y_true,
+                self.input_var_Xs,
+                self.program.evaluate_loss,
+                self.program.max_open_constants,
+                2000,
+                self.program.optimizer)
             ##
             optimized_constants.append(opt_consts)
             optimized_obj.append(opt_obj)
@@ -180,11 +186,15 @@ class ContextSensitiveGrammar(object):
                 for _ in range(self.opt_num_expriments * 3):
                     self.task.rand_draw_X_fixed_with_index(next_free_variable)
                     y_true = self.task.evaluate()
-                    _, eq, opt_consts, opt_obj = self.program.optimize(new_expr_template,
-                                                                       self.task.X,
-                                                                       y_true,
-                                                                       self.input_var_Xs,
-                                                                       user_scpeficied_iters=1000)
+                    _, eq, opt_consts, opt_obj = optimize(
+                        expr_template,
+                        self.task.X,
+                        y_true,
+                        self.input_var_Xs,
+                        self.program.evaluate_loss,
+                        self.program.max_open_constants,
+                        2000,
+                        self.program.optimizer)
                     ##
                     # optimized_constants.append(opt_consts)
                     optimized_cond_obj.append(opt_obj)
@@ -296,7 +306,8 @@ class ContextSensitiveGrammar(object):
                 else:
                     if one_fitted_expression.reward > self.hall_of_fame[-1].reward:
                         # sorting the list in ascending order
-                        self.hall_of_fame = sorted(self.hall_of_fame[1:] + [one_fitted_expression], key=lambda x: x.reward, reverse=False)
+                        self.hall_of_fame = sorted(self.hall_of_fame[1:] + [one_fitted_expression],
+                                                   key=lambda x: x.reward, reverse=False)
 
     def print_hofs(self, mode: str, verbose=False):
         """
