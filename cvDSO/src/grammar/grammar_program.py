@@ -11,12 +11,12 @@ from sympy import lambdify
 
 from scipy.optimize import minimize
 from scipy.optimize import basinhopping, shgo, dual_annealing
-
+from grammar.utils import pprint_ntuple
 from grammar.grammar_utils import pretty_print_expr
 from grammar.production_rules import production_rules_to_expr
 from grammar.metrics import all_metrics
 from pathos.multiprocessing import ProcessPool
-
+import psutil
 
 class SymbolicExpression(object):
 
@@ -88,7 +88,9 @@ class grammarProgram(object):
         """
         here we assume the input will be a valid expression
         """
-
+        print("total CPU cores:", psutil.cpu_count())
+        print('MEMORY\n------')
+        pprint_ntuple(psutil.virtual_memory())
         pool = ProcessPool(nodes=self.n_cores)
 
         # for one_list_rules in many_seqs_of_rules:

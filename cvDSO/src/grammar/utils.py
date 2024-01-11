@@ -3,6 +3,15 @@
 
 import numpy as np
 
+from psutil._common import bytes2human
+
+
+def pprint_ntuple(nt):
+    for name in nt._fields:
+        value = getattr(nt, name)
+        if name != 'percent':
+            value = bytes2human(value)
+        print('%-10s : %7s' % (name.capitalize(), value))
 
 def weighted_quantile(values, weights, q):
     """
