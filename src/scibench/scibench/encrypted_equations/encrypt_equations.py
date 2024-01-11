@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import xxhash
-from typing import List, Dict, Set
+from typing import List
 
 from cryptography.fernet import Fernet
 
@@ -144,17 +144,17 @@ def main(private_key_folder='./', key_filename="public.key", output_folder="./",
         user_encode_data = json.dumps(equation).encode('utf-8')
         # print(user_encode_data)
         # exit()
-        if not os.path.isdir(os.path.join(output_folder, 'encrypted', folder_prefix)):
-            os.makedirs(os.path.join(output_folder, 'encrypted', folder_prefix))
-        hashed_name = xxhash.xxh128(eqname, seed=42).intdigest()
-        print(hashed_name)
-        output_eq_file = os.path.join(output_folder, 'encrypted', folder_prefix, str(hashed_name) + ".in")
+        # if not os.path.isdir(os.path.join(output_folder, 'encrypted', folder_prefix)):
+        #     os.makedirs(os.path.join(output_folder, 'encrypted', folder_prefix))
+        # hashed_name = xxhash.xxh128(eqname, seed=42).intdigest()
+        # print(hashed_name)
+        # output_eq_file = os.path.join(output_folder, 'encrypted', folder_prefix, str(hashed_name) + ".in")
 
-        encrypt_equation(user_encode_data, output_eq_file, key_filename, is_encrypted=1)
+        # encrypt_equation(user_encode_data, output_eq_file, key_filename, is_encrypted=1)
         # decrypt_equation(output_eq_file, key_filename)
-        if not os.path.isdir(os.path.join(output_folder, 'unencrypted', folder_prefix)):
-            os.makedirs(os.path.join(output_folder, 'unencrypted', folder_prefix))
-        output_eq_file = os.path.join(output_folder, 'unencrypted', folder_prefix, eqname + ".in")
+        if not os.path.isdir(os.path.join(output_folder, folder_prefix)):
+            os.makedirs(os.path.join(output_folder, folder_prefix))
+        output_eq_file = os.path.join(output_folder, folder_prefix, eqname + ".in")
 
         encrypt_equation(user_encode_data, output_eq_file, is_encrypted=0)
 
@@ -165,17 +165,41 @@ def main(private_key_folder='./', key_filename="public.key", output_folder="./",
 
 
 if __name__ == '__main__':
-    X_0,X_1,X_2,X_3,X_4,X_5,X_6,X_7, X_8, X_9, X_10, X_11, X_12 =symbols('X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12')
-    from equations_feynman import *
+    X_0, X_1, X_2, X_3, X_4, X_5, X_6, X_7, X_8, X_9, X_10, X_11, X_12 = symbols('X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12')
+    from equations_trigonometric_large_scale_10 import *
 
-    main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_feynman')
-    from equations_others import *
+    main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_10',
+         folder_prefix='')
 
-    main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_others')
+    from equations_trigonometric_large_scale_20 import *
 
-    from equations_livermore2 import *
+    main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_20',
+         folder_prefix='')
 
-    main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_livermore2')
+    from equations_trigonometric_large_scale_30 import *
+
+    main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_30',
+         folder_prefix='')
+
+    from equations_trigonometric_large_scale_40 import *
+
+    main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_40',
+         folder_prefix='')
+
+    from equations_trigonometric_large_scale_50 import *
+
+    main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_50',
+         folder_prefix='')
+    # from equations_feynman import *
+    #
+    # main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_feynman')
+    # from equations_others import *
+    #
+    # main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_others')
+    #
+    # from equations_livermore2 import *
+    #
+    # main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_livermore2')
 
     # from equation_pde import *
     #
@@ -195,7 +219,5 @@ if __name__ == '__main__':
     # from equations_trigometric import *
     #
     # main(output_folder='/home/jiangnan/PycharmProjects/scibench/data', folder_prefix='equations_trigometric')
-    from equation_spin_glass import *
 
-    main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_spin_glass')
 

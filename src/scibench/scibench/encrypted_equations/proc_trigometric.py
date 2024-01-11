@@ -165,19 +165,18 @@ def write_to_files(equations, template, output_folder):
             function_set,
             spl[1],
             spl[2].replace('X_0', 'x[0]').replace('X_1', 'x[1]').replace('X_2', 'x[2]').replace('X_3', 'x[3]').replace(
-                'X_4', 'x[4]').replace('X_5', 'x[5]').replace('X_6', 'x[6]').replace('X_7', 'x[7]').replace('X_8', 'x[8]').replace('X_9',
-                                                                                                                                   'x[9]').replace(
-                'X_10', 'x[10]').replace('X_11', 'x[11]').replace(
-                'log', 'sympy.log').replace('exp', 'sympy.exp').replace('sin', 'sympy.sin').replace(
-                'cos', 'sympy.cos').replace('div', 'sympy.div').replace('sqrt', 'sympy.sqrt').replace('pow', 'sympy.pow'),
+                'X_4', 'x[4]').replace('X_5', 'x[5]').replace('X_6', 'x[6]').replace('X_7', 'x[7]').replace('X_8', 'x[8]').replace(
+                'X_9', 'x[9]').replace('X_10', 'x[10]').replace('X_11', 'x[11]').replace('log', 'sympy.log').replace(
+                'exp', 'sympy.exp').replace('sin', 'sympy.sin').replace('cos', 'sympy.cos').replace('div', 'sympy.div').replace(
+                'sqrt', 'sympy.sqrt').replace('pow', 'sympy.pow'),
             spl[3])
         )
 
 
 function_set_dict = {
-    'inv_': ["add", "sub", "mul", "div", "inv", "const"],
+    'inv_': ["add", "sub", "mul", "inv", "const"],
     'sincos_': ["add", "sub", "mul", "sin", "cos", "const"],
-    'sincosinv_': ["add", "sub", "mul", "div", "inv", "sin", "cos", "const"],
+    'sincosinv_': ["add", "sub", "mul", "inv", "sin", "cos", "const"],
 }
 
 

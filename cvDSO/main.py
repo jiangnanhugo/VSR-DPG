@@ -34,7 +34,8 @@ threshold_values = {
 @click.option('--noise_scale', default=0.0, type=float, help="")
 @click.option('--max_len', default=10, help="max length of the sequence from the decoder")
 @click.option('--num_per_rounds', default=20, help="Number of iterations per rounds")
-def main(config_template, optimizer, equation_name, metric_name, noise_type, noise_scale, max_len, num_per_rounds):
+@click.option('--n_cores', default=1, help="Number of cores for parallel evaluation")
+def main(config_template, optimizer, equation_name, metric_name, noise_type, noise_scale, max_len, num_per_rounds, n_cores):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
     config = load_config(config_template)
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name=metric_name)
@@ -43,7 +44,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     function_set = data_query_oracle.get_operators_set()
 
     num_iterations = create_uniform_generations(num_per_rounds, nvar)
-    program = grammarProgram(optimizer=optimizer, metric_name=metric_name)
+    program = grammarProgram(optimizer=optimizer, metric_name=metric_name, n_cores=n_cores)
 
     regress_dataset_size = 2048
     task = RegressTask(regress_dataset_size,
@@ -103,7 +104,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
 
             production_rules = [gi for gi in production_rules if str(round_idx) not in gi]
 
-        # print("print result on global settings")
+
         grammar_model.print_hofs(mode='global', verbose=True)
     end_time = time.time() - g_start
     print("Final cvdso time {} mins".format(np.round(end_time / 60, 3)))

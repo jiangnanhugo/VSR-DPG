@@ -17,6 +17,7 @@ from grammar.production_rules import production_rules_to_expr
 from grammar.metrics import all_metrics
 from pathos.multiprocessing import ProcessPool
 
+
 class SymbolicExpression(object):
 
     def __init__(self, list_of_rules):
@@ -47,7 +48,7 @@ class grammarProgram(object):
     """
     evaluate_loss = None
 
-    def __init__(self, optimizer="BFGS", metric_name='inv_nrmse', max_opt_iter=100, max_open_constants=20):
+    def __init__(self, optimizer="BFGS", metric_name='inv_nrmse', max_opt_iter=100, n_cores=1, max_open_constants=20):
         """
         opt_num_expr:  # number of experiments done for optimization
         max_open_constants: the maximum number of allowed open constants in the expression.
@@ -57,6 +58,7 @@ class grammarProgram(object):
         self.max_opt_iter = max_opt_iter
         self.max_open_constants = max_open_constants
         self.metric_name = metric_name
+        self.n_cores = n_cores
         self.evaluate_loss = all_metrics[metric_name]
 
     def fitting_new_expressions(self, many_seqs_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
@@ -66,11 +68,16 @@ class grammarProgram(object):
         result = []
         for one_list_rules in many_seqs_of_rules:
             one_expr = SymbolicExpression(one_list_rules)
-            reward, fitted_eq, _, _ = self.optimize(one_expr.expr_template,
-                                                    dataX,
-                                                    y_true,
-                                                    input_var_Xs,
-                                                    len(one_expr.traversal))
+            reward, fitted_eq, _, _ = optimize(
+                one_expr.expr_template,
+                dataX,
+                y_true,
+                input_var_Xs,
+                self.evaluate_loss,
+                self.max_open_constants,
+                self.max_opt_iter,
+                self.optimizer
+            )
 
             one_expr.reward = reward
             one_expr.fitted_eq = fitted_eq
@@ -82,7 +89,7 @@ class grammarProgram(object):
         here we assume the input will be a valid expression
         """
 
-        pool = ProcessPool(nodes=10)
+        pool = ProcessPool(nodes=self.n_cores)
 
         # for one_list_rules in many_seqs_of_rules:
         many_expr_tempaltes = [SymbolicExpression(one_rules) for one_rules in many_seqs_of_rules]
