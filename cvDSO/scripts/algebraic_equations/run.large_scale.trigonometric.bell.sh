@@ -8,7 +8,7 @@ opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
 metric_name=inv_nrmse
-n_cores=8
+n_cores=1
 for prog in {0..9}; do
 	for rand in {0..9}; do
 		eq_name=${type}_nv8_nt812_prog_${prog}_totalvars_${totalvars}_rand_$rand.in
@@ -35,7 +35,7 @@ for prog in {0..9}; do
 #SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.${bsl}.cvdso.out
 #SBATCH --constraint=A
 #SBATCH --time=48:00:00
-
+#SBATCH --mem=8GB
 hostname
 
 $py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${bsl}.json --equation_name $datapath/$eq_name \
