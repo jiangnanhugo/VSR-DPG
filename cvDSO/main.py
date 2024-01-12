@@ -59,6 +59,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     start_symbols = ['A']
     best_expressions = None
     # Start training
+    best_expressions_Q = []
     stand_alone_constants = []
     g_start = time.time()
     for round_idx in range(len(num_iterations)):
@@ -93,18 +94,22 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
 
         if nt_nodes[0] in start_symbols[0]:
             print("training starting......")
-            best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
+            best_expressions = model.train(
+                threshold_values[metric_name]['reward_threshold'],
+                num_iterations[round_idx]
+            )
             end_time = time.time() - start
 
             print("cvdso time {} mins".format(np.round(end_time / 60, 3)))
+            best_expressions_Q.extend(best_expressions)
         else:
             print("skipping training......")
 
         if round_idx < len(num_iterations) - 1:
             # the last round does not need freeze
-            start_symbols, _, stand_alone_constants = grammar_model.freeze_equations(best_expressions,
-                                                                                     stand_alone_constants,
-                                                                                     round_idx + 1)
+            start_symbols, stand_alone_constants = grammar_model.freeze_equations(best_expressions,
+                                                                                  stand_alone_constants,
+                                                                                  round_idx + 1)
 
             print("The discovered expression template (with control variable {})".format(grammar_model.task.vf))
             print(start_symbols)
@@ -112,6 +117,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             production_rules = [gi for gi in production_rules if str(round_idx) not in gi]
 
         grammar_model.print_hofs(mode='global', verbose=True)
+        best_expressions_Q = grammar_model.print_and_sort_global_Qs(best_expressions_Q)
     end_time = time.time() - g_start
     print("Final cvdso time {} mins".format(np.round(end_time / 60, 3)))
 

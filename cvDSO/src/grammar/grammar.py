@@ -134,8 +134,7 @@ class ContextSensitiveGrammar(object):
         the threshold dependent on the evaluation metric.
         """
         print("---------Freeze Equation----------")
-        freezed_exprs = []
-        aug_nt_nodes = []
+
         new_stand_alone_constants = stand_alone_constants
         # only use the best
         fitted_expr = best_expressions[-1].fitted_eq
@@ -164,6 +163,8 @@ class ContextSensitiveGrammar(object):
         print("optimized_obj: ", optimized_obj)
         num_changing_consts = expr_template.count('C')
         is_summary_constants = np.zeros(num_changing_consts, dtype=int)
+        freezed_exprs = []
+
         if np.max(optimized_obj) <= self.expr_obj_thres:
             for ci in range(num_changing_consts):
                 print("std", np.std(optimized_constants[:, ci]), end="\t")
@@ -245,57 +246,58 @@ class ContextSensitiveGrammar(object):
                 else:
                     new_expr_template += ti
             freezed_exprs.append(new_expr_template)
-            aug_nt_nodes.append(['A', ] * sum([1 for ti in new_expr_template if ti == 'A']))
-            return freezed_exprs, aug_nt_nodes, new_stand_alone_constants
+
+            return freezed_exprs, new_stand_alone_constants
 
         print("No available expression is found....trying to add the current best guessed...")
         fitted_expr = best_expressions[-1].fitted_eq
-        expr_template = expression_to_template(parse_expr(fitted_expr), stand_alone_constants)
-        cidx = 0
-        new_expr_template = ''
-        for ti in expr_template:
-            if ti == 'C':
-                # summary constant
-                new_expr_template += '(A)'
-                cidx += 1
-            else:
-                new_expr_template += ti
-        freezed_exprs.append(new_expr_template)
-        aug_nt_nodes.append(['A', ] * sum([1 for ti in new_expr_template if ti == 'A']))
-        expri, ntnodei = freezed_exprs[0], aug_nt_nodes[0]
-        countA = expri.count('(A)')
-        # diversify the number of A
-        new_freezed_exprs = [expri, ]
-        new_aug_nt_nodes = [['A', ] * countA, ]
-
-        if countA >= 3:
-            ti = 0
-            while ti < 2:
-                mask = np.random.randint(2, size=countA)
-                while np.sum(mask) == 0 or np.sum(mask) == countA:
-                    mask = np.random.randint(2, size=countA)
-                countAi = 0
-                expri_new = ""
-                for i in range(len(expri)):
-                    if expri[i] == 'A' and mask[countAi] == 0:
-                        expri_new += 'C'
-                    else:
-                        expri_new += expri[i]
-                    countAi += (expri[i] == 'A')
-                if expri_new not in new_freezed_exprs:
-                    new_freezed_exprs.append(expri_new)
-                    new_aug_nt_nodes.append(['A', ] * (np.sum(mask)))
-                    ti += 1
-        else:
-            new_freezed_exprs.append(expri)
-            new_aug_nt_nodes.append(ntnodei)
-        # only generate at most 3 template for the next round, otherwise it will be too time consuming
-        ret_frezze_exprs, ret_aug_nt_nodes = [], []
-        for x, y in zip(new_freezed_exprs, new_aug_nt_nodes):
-            if x not in ret_frezze_exprs:
-                ret_frezze_exprs.append(x)
-                ret_aug_nt_nodes.append(y)
-        return ret_frezze_exprs, ret_aug_nt_nodes, new_stand_alone_constants
+        return [fitted_expr + " + A"], new_stand_alone_constants
+        # expr_template = expression_to_template(parse_expr(fitted_expr), stand_alone_constants)
+        # cidx = 0
+        # new_expr_template = ''
+        # for ti in expr_template:
+        #     if ti == 'C':
+        #         # summary constant
+        #         new_expr_template += '(A)'
+        #         cidx += 1
+        #     else:
+        #         new_expr_template += ti
+        # freezed_exprs.append(new_expr_template)
+        # aug_nt_nodes.append(['A', ] * sum([1 for ti in new_expr_template if ti == 'A']))
+        # expri, ntnodei = freezed_exprs[0], aug_nt_nodes[0]
+        # countA = expri.count('(A)')
+        # # diversify the number of A
+        # new_freezed_exprs = [expri, ]
+        # new_aug_nt_nodes = [['A', ] * countA, ]
+        #
+        # if countA >= 3:
+        #     ti = 0
+        #     while ti < 2:
+        #         mask = np.random.randint(2, size=countA)
+        #         while np.sum(mask) == 0 or np.sum(mask) == countA:
+        #             mask = np.random.randint(2, size=countA)
+        #         countAi = 0
+        #         expri_new = ""
+        #         for i in range(len(expri)):
+        #             if expri[i] == 'A' and mask[countAi] == 0:
+        #                 expri_new += 'C'
+        #             else:
+        #                 expri_new += expri[i]
+        #             countAi += (expri[i] == 'A')
+        #         if expri_new not in new_freezed_exprs:
+        #             new_freezed_exprs.append(expri_new)
+        #             new_aug_nt_nodes.append(['A', ] * (np.sum(mask)))
+        #             ti += 1
+        # else:
+        #     new_freezed_exprs.append(expri)
+        #     new_aug_nt_nodes.append(ntnodei)
+        # # only generate at most 3 template for the next round, otherwise it will be too time consuming
+        # ret_frezze_exprs, ret_aug_nt_nodes = [], []
+        # for x, y in zip(new_freezed_exprs, new_aug_nt_nodes):
+        #     if x not in ret_frezze_exprs:
+        #         ret_frezze_exprs.append(x)
+        #         ret_aug_nt_nodes.append(y)
+        # return ret_frezze_exprs, ret_aug_nt_nodes, new_stand_alone_constants
 
     def update_hall_of_fame(self, one_fitted_expression: SymbolicExpression):
 
@@ -319,16 +321,19 @@ class ContextSensitiveGrammar(object):
         """
         if mode == 'global':
             old_vf = copy.copy(self.task.get_vf())
-            self.program.vf = [1, ] * self.nvars
+            self.task.vf = [1, ] * self.nvars
             self.task.set_allowed_inputs(self.task.get_vf())
             print("new vf for HOF ranking", self.task.get_vf(), self.task.fixed_column)
         self.task.rand_draw_data_with_X_fixed()
-        print(f"PRINT HOF (free variables={self.task.fixed_column})")
+        print(f"PRINT Best Equations (free variables={self.task.fixed_column})")
         print("=" * 20)
         for pr in self.hall_of_fame[:self.hof_size]:
             if verbose:
                 print('        ', pr, end="\n")
-                self.print_reward_function_all_metrics(pr.fitted_eq, verbose=verbose)
+                if pr.reward != -np.inf:
+                    self.print_reward_function_all_metrics(pr.fitted_eq, verbose=verbose)
+                else:
+                    print("No metrics")
             else:
                 print('        ', pr, end="\n")
         print("=" * 20)
@@ -336,6 +341,33 @@ class ContextSensitiveGrammar(object):
             self.task.vf = old_vf
             self.task.set_allowed_inputs(old_vf)
             print("reset old vf", self.task.get_vf(), self.task.fixed_column)
+
+    def print_and_sort_global_Qs(self, Q):
+        """
+        mode: if global, then we rank on no variable controlled.
+        """
+        old_vf = copy.copy(self.task.get_vf())
+        self.task.vf = [1, ] * self.nvars
+        self.task.set_allowed_inputs(self.task.vf)
+        print("new vf for HOF ranking", self.task.get_vf(), self.task.fixed_column)
+        self.task.rand_draw_data_with_X_fixed()
+
+        for pr in Q:
+            fitness_scores = self.print_reward_function_all_metrics(pr.fitted_eq, verbose=False)
+            pr.reward = fitness_scores[self.program.metric_name]
+            pr.all_metrics = fitness_scores
+        Q = sorted(Q, key=lambda x: x.reward, reverse=False)
+        print(f"PRINT GLOBAL Q (free variables={self.task.vf})")
+        print("=" * 20)
+        for pr in Q:
+            print('        ', pr, end="\n")
+            pr.print_all_metrics()
+        print("=" * 20)
+        self.task.vf = old_vf
+        self.task.set_allowed_inputs(old_vf)
+        print("reset old vf", self.task.get_vf(), 'fixed_column:', self.task.fixed_column)
+
+        return Q
 
     def print_reward_function_all_metrics(self, expr_str, verbose=False):
         """used for print the error for all metrics between the predicted program `p` and true program."""

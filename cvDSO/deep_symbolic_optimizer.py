@@ -58,7 +58,7 @@ class VSRDeepSymbolicRegression(object):
                                                           self.input_embedding_layer,
                                                           **self.config_expression_decoder)
 
-    def train(self, reward_threshold):
+    def train(self, reward_threshold,n_epochs):
         """
         return the best predicted expression under the current controlled variable settings.
         """
@@ -68,6 +68,7 @@ class VSRDeepSymbolicRegression(object):
                             self.sess,
                             self.expression_decoder,
                             reward_threshold=reward_threshold,
+                            n_epochs=n_epochs,
                             **self.config_training)
 
         return result_dict

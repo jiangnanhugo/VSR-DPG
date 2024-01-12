@@ -41,8 +41,8 @@ class RegressTask(object):
         ''' get the free variables.'''
         return self.vf
 
-    def set_allowed_inputs(self, allowed_inputs):
-        self.allowed_input = np.copy(allowed_inputs)
+    def set_allowed_inputs(self, vf):
+        self.allowed_input = np.copy(vf)
         self.fixed_column = [i for i in range(self.n_vars) if self.vf[i] == 0]
 
     def set_allowed_input(self, xi: int, flag: int):

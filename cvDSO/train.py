@@ -305,7 +305,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
             print(" Training epoch {}/{}, current best R: {}".format(epoch + 1, n_epochs, prev_r_best))
             print(f"{p_r_best}")
 
-            print("\n\t** New best")
+            print("\t** New best")
 
         if early_stopping and p_r_best.reward > reward_threshold:
             print("Early stopping criteria met; breaking early.")

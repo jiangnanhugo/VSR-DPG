@@ -16,8 +16,7 @@
    // Only the key training hyperparameters are listed here. See
    // config_common.json for the full list.
    "training" : {
-      "n_epochs": 20,
-      "batch_size" : 256,
+      "batch_size" : 128,
       "epsilon" : 0.2,
       // <R> is the sample average _after_ epsilon sub-sampling and  R_e is the (1-epsilon)-quantile estimate.
       // (1) "ewma_R" : b = EWMA(<R>) (2) "R_e" : b = R_e (3) "ewma_R_e" : b = EWMA(R_e) (4) "combined" : b = R_e + EWMA(<R> - R_e)
@@ -29,7 +28,7 @@
    "expression_decoder" : {
       // Optimizer hyperparameters.
       "initializer" : "var_scale",
-      "learning_rate" : 0.005,
+      "learning_rate" : 0.009,
       "optimizer" : "adam",
       "entropy_weight" : 0.03,
       "entropy_gamma" : 0.7,

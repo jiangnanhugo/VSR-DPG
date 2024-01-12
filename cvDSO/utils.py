@@ -73,8 +73,8 @@ def create_geometric_generations(n_generations, nvar, ratio=1.2):
 
     # gens[0] = n_generations
     for it in range(0, nvar):
-        if gens[it] < 20:
-            gens[it] = 20
+        if gens[it] < 10:
+            gens[it] = 10
     gens = gens
     print('generation #:', gens, 'sum=', sum(gens))
     return gens
