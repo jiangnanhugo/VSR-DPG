@@ -80,9 +80,11 @@ def create_geometric_generations(n_generations, nvar, ratio=1.2):
     return gens
 
 
-def create_uniform_generations(n_generations, nvar):
+def create_uniform_generations(n_generations, nvar, ratio=0.95):
     gens = [0] * nvar
     for it in range(nvar):
-        gens[it] = n_generations
+        gens[it] = int(n_generations * ratio ** it)
+        if gens[it] < 5:
+            gens[it] = 5
     print('generation #:', gens, 'sum=', sum(gens))
     return gens
