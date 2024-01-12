@@ -234,7 +234,7 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
             used_vars.append(xi)
     try:
         if len(used_idx) ==0:
-            return expr
+            return float(expr)
         f = lambdify(used_vars, expr, 'numpy')
         if len(used_idx) != 0:
             y_hat = f(*[data_X[i] for i in used_idx])

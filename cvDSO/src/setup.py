@@ -1,6 +1,5 @@
 from distutils.core import setup
 
-
 required = [
     "cython",
     "numpy",
@@ -10,14 +9,14 @@ required = [
     "click",
     "tqdm",
     "commentjson",
-    "PyYAML"
+    "PyYAML",
+    "pathos"
 ]
 
-
-
-setup(name='grammar',
-      version='1.0',
-      description='Deep symbolic optimization with control variable experiment.',
-      packages=['grammar'],
-      install_requires=required,
-      )
+setup(
+    name='grammar',
+    version='1.0',
+    description='Deep symbolic optimization with control variable experiment.',
+    packages=['grammar'],
+    install_requires=required,
+)
