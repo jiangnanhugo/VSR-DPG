@@ -11,10 +11,10 @@ metric_name=inv_nrmse
 n_cores=8
 for prog in {0..9}; do
 	for rand in {0..9}; do
-		eq_name=${type}_nv8_nt812_prog_${prog}_totalvars_${totalvars}_rand_$rand.in
+		eq_name=${type}_nv5_nt55_prog_${prog}_totalvars_${totalvars}_rand_$rand.in
 		echo "submit $eq_name"
 
-		dump_dir=$basepath/result/${type}_nv8_nt812/totalvars_${totalvars}/$(date +%F)
+		dump_dir=$basepath/result/${type}_nv5_nt55/totalvars_${totalvars}/$(date +%F)
 		echo $dump_dir
 		if [ ! -d "$dump_dir" ]; then
 			echo "create output dir: $dump_dir"
