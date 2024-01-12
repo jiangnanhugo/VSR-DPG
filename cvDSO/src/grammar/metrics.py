@@ -15,16 +15,16 @@ def inv_nrmse(y, y_hat, var_y):
 
 all_metrics = {
     # Negative mean squared error
-    "neg_mse": lambda y, y_hat: -np.mean((y - y_hat) ** 2),
+    "neg_mse": lambda y, y_hat, var_y: -np.mean((y - y_hat) ** 2),
     # Negative root mean squared error
-    "neg_rmse": lambda y, y_hat: -np.sqrt(np.mean((y - y_hat) ** 2)),
+    "neg_rmse": lambda y, y_hat, var_y: -np.sqrt(np.mean((y - y_hat) ** 2)),
     # Negative normalized mean squared error
     "neg_nmse": lambda y, y_hat, var_y: -np.mean((y - y_hat) ** 2) / var_y,
     "log_nmse": lambda y, y_hat, var_y: -np.log10(1e-60 + np.mean((y - y_hat) ** 2) / var_y),
     # Negative normalized root mean squared error
     "neg_nrmse": lambda y, y_hat, var_y: -np.sqrt(np.mean((y - y_hat) ** 2) / var_y),
     # (Protected) inverse mean squared error
-    "inv_mse": lambda y, y_hat: 1 / (1 + np.mean((y - y_hat) ** 2)),
+    "inv_mse": lambda y, y_hat, var_y: 1 / (1 + np.mean((y - y_hat) ** 2)),
     # (Protected) inverse normalized mean squared error
     "inv_nmse": lambda y, y_hat, var_y: 1 / (1 + np.mean((y - y_hat) ** 2) / var_y),
     # (Protected) inverse normalized root mean squared error

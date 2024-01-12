@@ -176,7 +176,8 @@ def optimize(eq, data_X, y_true, input_var_Xs, evaluate_loss, max_open_constants
             eq_est = eq_est.replace('+ +', '+')
             y_pred = execute(eq_est, data_X.T, input_var_Xs)
             var_ytrue = np.var(y_true)
-            return -evaluate_loss(y_pred, y_true, var_ytrue)
+            loss_val= -evaluate_loss(y_pred, y_true, var_ytrue)
+            return loss_val
 
         # do more than one experiment,
         x0 = np.random.rand(len(c_lst))
@@ -225,12 +226,15 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
     consts: list of constants.
     """
     expr = parse_expr(expr_str)
+
     used_vars, used_idx = [], []
     for idx, xi in enumerate(input_var_Xs):
         if str(xi) in expr_str:
             used_idx.append(idx)
             used_vars.append(xi)
     try:
+        if len(used_idx) ==0:
+            return expr
         f = lambdify(used_vars, expr, 'numpy')
         if len(used_idx) != 0:
             y_hat = f(*[data_X[i] for i in used_idx])

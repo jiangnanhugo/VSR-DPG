@@ -38,6 +38,7 @@ threshold_values = {
 def main(config_template, optimizer, equation_name, metric_name, noise_type, noise_scale, max_len, num_per_rounds, n_cores):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
     config = load_config(config_template)
+    config['task']['metric'] = metric_name
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name=metric_name)
     dataXgen = DataX(data_query_oracle.get_vars_range_and_types())
     nvar = data_query_oracle.get_nvars()

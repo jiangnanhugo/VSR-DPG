@@ -106,7 +106,7 @@ def get_n3_rules(nvars: int, non_terminal_node='A') -> list:
 def get_n4_rules(nvars: int, non_terminal_node='A') -> list:
     rules = []
     for i in range(nvars):
-        rules += get_ith_n5_rules(i, non_terminal_node)
+        rules += get_ith_n4_rules(i, non_terminal_node)
     return rules
 
 
@@ -155,22 +155,22 @@ def get_ith_var_rules(xi: int, non_terminal_node='A') -> list:
 
 def get_ith_n2_rules(xi: int, non_terminal_node='A') -> list:
     # [A-> C*Xi]
-    return [f'{non_terminal_node}->X{xi}**2', ]
+    return [f'{non_terminal_node}->C*X{xi}**2', ]
 
 
 def get_ith_n3_rules(xi: int, non_terminal_node='A') -> list:
     # [A-> C*Xi]
-    return [f'{non_terminal_node}->X{xi}**3', ]
+    return [f'{non_terminal_node}->C*X{xi}**3', ]
 
 
 def get_ith_n4_rules(xi: int, non_terminal_node='A') -> list:
     # [A-> C*Xi]
-    return [f'{non_terminal_node}->X{xi}**4', ]
+    return [f'{non_terminal_node}->C*X{xi}**4', ]
 
 
 def get_ith_n5_rules(xi: int, non_terminal_node='A') -> list:
     # [A-> C*Xi]
-    return [f'{non_terminal_node}->X{xi}**5', ]
+    return [f'{non_terminal_node}->C*X{xi}**5', ]
 
 
 def get_ith_inv_rules(xi: int, non_terminal_node='A') -> list:
