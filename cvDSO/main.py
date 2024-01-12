@@ -57,6 +57,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     reward_thresh = create_reward_threshold(10, len(num_iterations))
     nt_nodes = ['A']
     start_symbols = ['A']
+    best_expressions=None
     # Start training
     stand_alone_constants = []
     g_start = time.time()
@@ -67,31 +68,32 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
             production_rules += get_var_i_production_rules(round_idx, function_set)
         print("grammars:", production_rules)
         print("start_symbols:", start_symbols)
-        grammar_model = ContextSensitiveGrammar(
-            nvars=nvar,
-            production_rules=production_rules,
-            start_symbols=start_symbols[0],
-            non_terminal_nodes=nt_nodes,
-            max_length=max_len,
-            hof_size=10,
-            reward_threhold=reward_thresh[round_idx]
-        )
-        grammar_model.expr_obj_thres = threshold_values[metric_name]['expr_obj_thres']
-        grammar_model.task = task
-        grammar_model.program = program
-        grammar_model.task.set_vf(round_idx)
-        grammar_model.task.set_allowed_inputs(grammar_model.task.get_vf())
-        # Train the model
-        """Trains DSO and returns dict of reward, expressions"""
-        model = VSRDeepSymbolicRegression(config, grammar_model)
-        start = time.time()
-        print("training start.....")
-        # Setup the model
-        model.setup()
-        best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
-        end_time = time.time() - start
+        if nt_nodes[0] in start_symbols[0]:
+            grammar_model = ContextSensitiveGrammar(
+                nvars=nvar,
+                production_rules=production_rules,
+                start_symbols=start_symbols[0],
+                non_terminal_nodes=nt_nodes,
+                max_length=max_len,
+                hof_size=10,
+                reward_threhold=reward_thresh[round_idx]
+            )
+            grammar_model.expr_obj_thres = threshold_values[metric_name]['expr_obj_thres']
+            grammar_model.task = task
+            grammar_model.program = program
+            grammar_model.task.set_vf(round_idx)
+            grammar_model.task.set_allowed_inputs(grammar_model.task.get_vf())
+            # Train the model
+            """Trains DSO and returns dict of reward, expressions"""
+            model = VSRDeepSymbolicRegression(config, grammar_model)
+            start = time.time()
+            print("training start.....")
+            # Setup the model
+            model.setup()
+            best_expressions = model.train(threshold_values[metric_name]['reward_threshold'])
+            end_time = time.time() - start
 
-        print("cvdso time {} mins".format(np.round(end_time / 60, 3)))
+            print("cvdso time {} mins".format(np.round(end_time / 60, 3)))
 
         if round_idx < len(num_iterations) - 1:
             # the last round does not need freeze

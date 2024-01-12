@@ -166,27 +166,27 @@ def main(private_key_folder='./', key_filename="public.key", output_folder="./",
 
 if __name__ == '__main__':
     X_0, X_1, X_2, X_3, X_4, X_5, X_6, X_7, X_8, X_9, X_10, X_11, X_12 = symbols('X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12')
-    from equations_trigonometric_large_scale_10 import *
+    from equations_trigonometric_nv5_large_scale_10 import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_10',
          folder_prefix='')
 
-    from equations_trigonometric_large_scale_20 import *
+    from equations_trigonometric_nv5_large_scale_20 import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_20',
          folder_prefix='')
 
-    from equations_trigonometric_large_scale_30 import *
+    from equations_trigonometric_nv5_large_scale_30 import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_30',
          folder_prefix='')
 
-    from equations_trigonometric_large_scale_40 import *
+    from equations_trigonometric_nv5_large_scale_40 import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_40',
          folder_prefix='')
 
-    from equations_trigonometric_large_scale_50 import *
+    from equations_trigonometric_nv5_large_scale_50 import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/algebraic_equations/large_scale_50',
          folder_prefix='')

@@ -17,7 +17,7 @@ from expression_decoder import NeuralExpressionDecoder
 from train import learn
 from utils import load_config
 from inputEmbeddingLayer import make_embedding_layer
-
+import sys
 
 class VSRDeepSymbolicRegression(object):
     """
@@ -63,7 +63,7 @@ class VSRDeepSymbolicRegression(object):
         return the best predicted expression under the current controlled variable settings.
         """
         print("extra arguments:\n {}".format(self.config_training))
-
+        sys.stdout.flush()
         result_dict = learn(self.cfg,
                             self.sess,
                             self.expression_decoder,

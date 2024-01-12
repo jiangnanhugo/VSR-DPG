@@ -11,13 +11,10 @@ from grammar.grammar import ContextSensitiveGrammar
 from grammar.utils import empirical_entropy, weighted_quantile
 from grammar.memory import Batch, make_queue
 from grammar.variance import quantile_variance
-
+import sys
 # Ignore TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-
-
 
 
 """
@@ -155,7 +152,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
 
     top_samples_per_batch = list()
     print("-- RUNNING EPOCHS START -------------")
-
+    sys.stdout.flush()
     for epoch in range(n_epochs):
         # Set of str representations for all Programs ever seen
         # s_history = set(grammar_model.program.cache.keys())
@@ -166,7 +163,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
         actions, obs = expression_decoder.sample(batch_size)
         # if verbose:
         #     print("sampled actions:", actions)
-        grammar_expressions =  grammar_model.construct_expression(actions)
+        grammar_expressions = grammar_model.construct_expression(actions)
         nevals += batch_size
         # Compute rewards (or retrieve cached rewards)
         r = np.array([p.reward for p in grammar_expressions])
@@ -259,6 +256,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
         r = np.clip(r, -1e6, 1e6)
         r_train = np.clip(r_train, -1e6, 1e6)
         print("r_train shape:", r_train.shape)
+        sys.stdout.flush()
         # Compute baseline
         # NOTE: pg_loss = tf.reduce_mean((self.r - self.baseline) * neglogp, name="pg_loss")
         if baseline == "ewma_R":
@@ -287,6 +285,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
             pqt_batch = priority_queue.sample_batch(expression_decoder.pqt_batch_size)
         else:
             pqt_batch = None
+        summaries = expression_decoder.train_step(b_train, sampled_batch, pqt_batch)
 
         # Update the memory queue
         if memory_queue is not None:
@@ -335,6 +334,7 @@ def learn(grammar_model: ContextSensitiveGrammar,
     # Return the best expression
     p = p_final if p_final is not None else p_r_best
     print(p)
+    sys.stdout.flush()
     return [p]
 
 

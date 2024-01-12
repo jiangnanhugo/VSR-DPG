@@ -157,8 +157,8 @@ class {}(KnownEquation):
 """
 
 
-def write_to_files(equations, template, output_folder, total_variables):
-    fw = open(os.path.join(output_folder, f"equations_trigonometric_large_scale_{total_variables}.py"), 'w')
+def write_to_files(equations, template, output_folder, used_vars,total_variables):
+    fw = open(os.path.join(output_folder, f"equations_trigonometric_nv{used_vars}_large_scale_{total_variables}.py"), 'w')
     fw.write("""from collections import OrderedDict
 import sympy
 from base import KnownEquation
@@ -222,13 +222,13 @@ def replace_with_rand_variables(rand_mapping, preorder_traversal_expr, preorder_
 
 
 @click.command()
+@click.option("--total_variables", default=50, help="Number of total variables.")
 @click.option('--basepath', default='/home/jiangnan/PycharmProjects/xyx_dso/data/')
 @click.option('--output_folder', default='./')
-@click.option("--total_variables", default=10, help="Number of total variables.")
-def main(basepath, output_folder, total_variables):
+def main(total_variables, basepath, output_folder):
     program_files = []
     for root, dirs, files in os.walk(basepath, topdown=False):
-        if 'nv8' in root:
+        if 'nv5' in root:
             for name in files:
                 if name.endswith(".data"):
                     program_files.append(os.path.join(root, name))
@@ -259,7 +259,7 @@ def main(basepath, output_folder, total_variables):
 
             equations.append([eq_class_name, total_variables, str(new_expr), preorder_traversal_tuple_local])
 
-    write_to_files(equations, template, output_folder, total_variables)
+    write_to_files(equations, template, output_folder,num_vars, total_variables)
 
 
 if __name__ == '__main__':

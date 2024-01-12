@@ -17,6 +17,9 @@ from grammar.production_rules import production_rules_to_expr
 from grammar.metrics import all_metrics
 from pathos.multiprocessing import ProcessPool
 import psutil
+from itertools import chain
+import os, sys
+
 
 class SymbolicExpression(object):
 
@@ -60,12 +63,14 @@ class grammarProgram(object):
         self.metric_name = metric_name
         self.n_cores = n_cores
         self.evaluate_loss = all_metrics[metric_name]
+        self.pool = ProcessPool(nodes=self.n_cores)
 
     def fitting_new_expressions(self, many_seqs_of_rules, dataX: np.ndarray, y_true, input_var_Xs):
         """
         here we assume the input will be a valid expression
         """
         result = []
+        print("many_seqs_of_rules:", len(many_seqs_of_rules))
         for one_list_rules in many_seqs_of_rules:
             one_expr = SymbolicExpression(one_list_rules)
             reward, fitted_eq, _, _ = optimize(
@@ -88,36 +93,42 @@ class grammarProgram(object):
         """
         here we assume the input will be a valid expression
         """
-        pool = ProcessPool(nodes=self.n_cores)
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            chunk_size = len(lst) // n
+            for i in range(0, len(lst), chunk_size):
+                yield lst[i:i + chunk_size]
 
-        # for one_list_rules in many_seqs_of_rules:
-        many_expr_tempaltes = [SymbolicExpression(one_rules) for one_rules in many_seqs_of_rules]
+        many_expr_tempaltes = chunks([SymbolicExpression(one_rules) for one_rules in many_seqs_of_rules], self.n_cores)
+        dataXes = [dataX for _ in range(self.n_cores)]
+        y_trues = [y_true for _ in range(self.n_cores)]
+        input_var_Xes = [input_var_Xs for _ in range(self.n_cores)]
+        evaluate_losses = [self.evaluate_loss for _ in range(self.n_cores)]
+        max_open_constantes = [self.max_open_constants for _ in range(self.n_cores)]
+        max_opt_iteres = [self.max_opt_iter for _ in range(self.n_cores)]
+        optimizeres = [self.optimizer for _ in range(self.n_cores)]
 
-        # result.append(one_expr)
-        dataXes = [dataX for _ in range(len(many_expr_tempaltes))]
-        y_trues = [y_true for _ in range(len(many_expr_tempaltes))]
-        input_var_Xes = [input_var_Xs for _ in range(len(many_expr_tempaltes))]
-        evaluate_losses = [self.evaluate_loss for _ in range(len(many_expr_tempaltes))]
-        max_open_constantes = [self.max_open_constants for _ in range(len(many_expr_tempaltes))]
-        max_opt_iteres = [self.max_opt_iter for _ in range(len(many_expr_tempaltes))]
-        optimizeres = [self.optimizer for _ in range(len(many_expr_tempaltes))]
-
-        result = pool.map(fit_one_expr, many_expr_tempaltes, dataXes, y_trues, input_var_Xes, evaluate_losses,
-                          max_open_constantes, max_opt_iteres, optimizeres)
-
+        result = self.pool.map(fit_one_expr, many_expr_tempaltes, dataXes, y_trues, input_var_Xes, evaluate_losses,
+                               max_open_constantes, max_opt_iteres, optimizeres)
+        result = list(chain.from_iterable(result))
+        print("Done with optimization!")
+        sys.stdout.flush()
         return result
 
 
-def fit_one_expr(one_expr, dataX, y_true, input_var_Xs, evaluate_loss, max_open_constants, max_opt_iter, optimizer_name):
-    reward, fitted_eq, _, _ = optimize(one_expr.expr_template,
-                                       dataX,
-                                       y_true,
-                                       input_var_Xs,
-                                       evaluate_loss, max_open_constants, max_opt_iter, optimizer_name)
+def fit_one_expr(one_expr_batch, dataX, y_true, input_var_Xs, evaluate_loss, max_open_constants, max_opt_iter, optimizer_name):
+    results = []
+    for one_expr in one_expr_batch:
+        reward, fitted_eq, _, _ = optimize(one_expr.expr_template,
+                                           dataX,
+                                           y_true,
+                                           input_var_Xs,
+                                           evaluate_loss, max_open_constants, max_opt_iter, optimizer_name)
 
-    one_expr.reward = reward
-    one_expr.fitted_eq = fitted_eq
-    return one_expr
+        one_expr.reward = reward
+        one_expr.fitted_eq = fitted_eq
+        results.append(one_expr)
+    return results
 
 
 def optimize(eq, data_X, y_true, input_var_Xs, evaluate_loss, max_open_constants, max_opt_iter, optimizer_name, user_scpeficied_iters=-1,
