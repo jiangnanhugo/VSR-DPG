@@ -8,7 +8,7 @@ opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
 metric_name=inv_nrmse
-n_cores=1
+n_cores=8
 for prog in {0..9}; do
 	for rand in {0..9}; do
 		eq_name=${type}_nv8_nt812_prog_${prog}_totalvars_${totalvars}_rand_$rand.in
@@ -28,7 +28,8 @@ for prog in {0..9}; do
 		fi
 		for bsl in DSR; do
 			echo $basepath/cvDSO/config/config_regression_${bsl}.json
-			sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=$n_cores <<EOT
+			total_cpus=$((n_cores + 1))
+			sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=$total_cpus <<EOT
 #!/bin/bash -l
 
 #SBATCH --job-name="cvDSO-${type}${totalvars}_${prog}_${rand}"

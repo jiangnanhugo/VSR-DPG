@@ -123,9 +123,9 @@ class ContextSensitiveGrammar(object):
         elif self.program.n_cores > 2:
             many_expressions = self.program.fitting_new_expressions_in_parallel(filtered_many_rules, self.task.X, y_true,
                                                                                 self.input_var_Xs)
-        for one_expression in many_expressions:
-            if one_expression.reward != -np.inf:
-                one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)
+        # for one_expression in many_expressions:
+        #     if one_expression.reward != -np.inf:
+        #         one_expression.all_metrics = self.print_reward_function_all_metrics(one_expression.fitted_eq)
         return many_expressions
 
     def freeze_equations(self, best_expressions, stand_alone_constants, next_free_variable):
@@ -328,7 +328,7 @@ class ContextSensitiveGrammar(object):
         for pr in self.hall_of_fame[:self.hof_size]:
             if verbose:
                 print('        ', pr, end="\n")
-                pr.print_all_metrics()
+                self.print_reward_function_all_metrics(pr.fitted_eq, verbose=verbose)
             else:
                 print('        ', pr, end="\n")
         print("=" * 20)
@@ -341,8 +341,8 @@ class ContextSensitiveGrammar(object):
         """used for print the error for all metrics between the predicted program `p` and true program."""
         y_hat = execute(expr_str, self.task.X.T, self.input_var_Xs)
         dict_of_result = self.task.data_query_oracle._evaluate_all_losses(self.task.X, y_hat)
-        dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(
-            expr_str)
+        # dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(
+        #     expr_str)
         if verbose:
             print('-' * 30)
             for mertic_name in dict_of_result:
