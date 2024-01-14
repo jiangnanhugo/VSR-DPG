@@ -7,7 +7,7 @@ data_path=$basepath/data/algebraic_equations/large_scale_${totalvars}
 opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
-metric_name=inv_nrmse
+metric_name=neg_mse
 num_episodes=10000
 for prog in {0..9}; do
 	#prog=0
