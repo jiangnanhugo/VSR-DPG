@@ -102,11 +102,13 @@ def mcts(equation_name, num_episodes, metric_name, noise_type, noise_scale, opti
     MCTS.program = Program(nvar, optimizer)
     MCTS.program.evalaute_loss = data_query_oracle.compute_metric
     if production_rules_mode == 'trigonometric':
-        from production_rules_trigometric import get_var_i_production_rules, get_production_rules
+        from production_rules_trigometric import get_production_rules
     elif production_rules_mode == 'livermore2':
-        from production_rules import get_var_i_production_rules, get_production_rules
+        from production_rules import get_production_rules
     elif production_rules_mode == 'feynman':
-        from production_rules_feynman import get_var_i_production_rules, get_production_rules
+        from production_rules_feynman import get_production_rules
+    else:
+        from production_rules import get_production_rules
     production_rules = get_production_rules(nvar, operators_set)
     print("The production rules are:", production_rules)
     if track_memory:
@@ -124,128 +126,6 @@ def mcts(equation_name, num_episodes, metric_name, noise_type, noise_scale, opti
     print("MCTS {} mins".format(np.round(end_time / 60, 3)))
 
 
-def run_vsr_mcts(
-        operators_set, opt_num_expr: int, num_iterations: list, nt_nodes=['A'], num_rollouts=40,
-        max_len=30, eta=0.999, max_module_init=12, num_aug=5, exp_rate=1 / np.sqrt(2),
-        production_rules_mode='trigonometric'
-):
-    """
-    num_run: number of iterations.
-    max_len: maximum allowed length (number of production rules ) of discovered equations.
-    eta: penalty factor for rewarding.
-    max_module_init: initial maximum length for module transplantation candidates.
-    num_aug : number of trees for module transplantation.
-    exp_rate: initial exploration rate.
-    """
-
-    # define production rules and non-terminal nodes.
-    if production_rules_mode == 'trigonometric':
-        from production_rules_trigometric import get_var_i_production_rules, get_production_rules
-    elif production_rules_mode == 'livermore2':
-        from production_rules import get_var_i_production_rules, get_production_rules
-    elif production_rules_mode == 'feynman':
-        from production_rules_feynman import get_var_i_production_rules, get_production_rules
-    production_rules = get_production_rules(0, operators_set)
-    print("The production rules are:", production_rules)
-    grammars = production_rules
-
-    # number of module max size increase after each transplantation
-    module_grow_step = (max_len - max_module_init) / np.sum(num_iterations)
-
-    exploration_rate = exp_rate
-    max_module = max_module_init
-    stand_alone_constants = []
-
-    aug_nt_nodes = []
-    aug_grammars = []
-
-    reward_thresh = create_reward_threshold(10, len(num_iterations))
-    for round_idx in range(len(num_iterations)):
-        print('++++++++++++ ROUND {}  ++++++++++++'.format(round_idx))
-        MCTS.program.set_vf(round_idx)
-        MCTS.task.set_allowed_inputs(MCTS.program.get_vf())
-        if round_idx < len(num_iterations):
-            grammars += get_var_i_production_rules(round_idx, operators_set)
-        print("grammars:", grammars)
-        print("aug grammars:", aug_grammars)
-        print("aug ntn nodes:", aug_nt_nodes)
-        print("num_rollouts:", num_rollouts)
-
-        mcts_model = MCTS(base_grammars=grammars,
-                          aug_grammars=aug_grammars,
-                          non_terminal_nodes=nt_nodes,
-                          aug_nt_nodes=aug_nt_nodes,
-                          max_len=max_len,
-                          max_module=max_module,
-                          aug_grammars_allowed=num_aug,
-                          exploration_rate=exploration_rate,
-                          eta=eta,
-                          max_opt_iter=200)
-        iter_time = time.time()
-        print_freq = 1
-        _, population = mcts_model.MCTS_run(num_iterations[round_idx],
-                                            num_rollouts=num_rollouts,
-                                            reward_threhold=reward_thresh[round_idx],
-                                            verbose=True,
-                                            is_first_round=(round_idx == 0),
-                                            print_freq=print_freq)
-
-        print("Time usage of round {} is {} mins".format(round_idx, np.round((time.time() - iter_time) / 60, 4)))
-
-        mcts_model.UCBs = {}
-        mcts_model.QN = {}
-        print(population)
-        if round_idx < len(num_iterations) - 1:
-            # the last round does not need freeze
-            aug_grammars, aug_nt_nodes, stand_alone_constants = mcts_model.freeze_equations(population,
-                                                                                            opt_num_expr,
-                                                                                            stand_alone_constants,
-                                                                                            round_idx + 1)
-
-            print("AUG grammars")
-            print(aug_grammars)
-
-            grammars = [gi for gi in grammars if str(round_idx) not in gi]
-
-        max_module += int(module_grow_step)
-        exploration_rate *= 1.2
-        num_rollouts = max(15, int(num_rollouts * 0.8))
-    print("final hof")
-    mcts_model.print_hofs(-1, verbose=True)
-
-
-def vsr_mcts(equation_name, num_per_episodes, metric_name, noise_type, noise_scale, optimizer,
-             production_rules_mode,
-             memray_output_bin, track_memory=False):
-    data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name)
-    dataXgen = DataX(data_query_oracle.get_vars_range_and_types())
-    nvar = data_query_oracle.get_nvars()
-    operators_set = data_query_oracle.get_operators_set()
-
-    regress_batchsize = 256
-    opt_num_expr = 5
-    allowed_input_tokens = np.ones(nvar, dtype=np.int32)
-    MCTS.task = RegressTask(regress_batchsize,
-                            allowed_input_tokens,
-                            dataXgen,
-                            data_query_oracle)
-    MCTS.program = Program(nvar, optimizer)
-    MCTS.program.evalaute_loss = data_query_oracle.compute_metric
-    num_iterations = create_uniform_generations(num_per_episodes, nvar)
-    if track_memory:
-        import memray
-        if os.path.isfile(memray_output_bin):
-            os.remove(memray_output_bin)
-        with memray.Tracker(memray_output_bin):
-            start = time.time()
-            run_vsr_mcts(operators_set, opt_num_expr, num_iterations, production_rules_mode=production_rules_mode)
-            end_time = time.time() - start
-    else:
-        start = time.time()
-        run_vsr_mcts(operators_set, opt_num_expr, num_iterations, production_rules_mode=production_rules_mode)
-        end_time = time.time() - start
-
-    print("VSR-MCTS {} mins".format(np.round(end_time / 60, 3)))
 
 
 if __name__ == '__main__':
@@ -264,8 +144,6 @@ if __name__ == '__main__':
     parser.add_argument("--production_rule_mode", type=str, default='trigonometric', help="production rules")
     parser.add_argument("--track_memory", action="store_true",
                         help="whether run memery track evaluation.")
-    parser.add_argument("--cv_mcts", action="store_true",
-                        help="whether run normal mcts (cv_mcts=False) or control variable mcts (cv_mcts=True).")
 
     args = parser.parse_args()
 
@@ -276,16 +154,9 @@ if __name__ == '__main__':
     seed = int(time.perf_counter() * 10000) % 1000007
     np.random.seed(seed)
     print('np.random seed=', seed)
-    print(args)
 
-    if args.cv_mcts:
-        # run control variable experiment based Monte Carlo Tree Search
-        vsr_mcts(args.equation_name, args.num_per_episodes, args.metric_name, args.noise_type, args.noise_scale, args.optimizer,
-                 args.production_rule_mode,
-                 args.memray_output_bin,
-                 args.track_memory)
-    else:
-        # run Monte Carlo Tree Search
-        mcts(args.equation_name, args.num_episodes, args.metric_name, args.noise_type, args.noise_scale, args.optimizer,
-             args.production_rule_mode,
-             args.memray_output_bin, args.track_memory)
+
+    # run Symbolic Physics Learner using Monte Carlo Tree Search
+    mcts(args.equation_name, args.num_episodes, args.metric_name, args.noise_type, args.noise_scale, args.optimizer,
+         args.production_rule_mode,
+         args.memray_output_bin, args.track_memory)

@@ -1,4 +1,4 @@
-"""Not yet finnished template for functionality like in lorenz.py file,
+"""Not yet finnished template for functionality like in proged-lorenz.py file,
 which uses arguments from command line for the name of log files that it
 produces.
 """

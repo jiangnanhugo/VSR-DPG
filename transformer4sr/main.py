@@ -14,7 +14,6 @@ import random
 import numpy as np
 from scibench.symbolic_data_generator import DataX
 from scibench.symbolic_equation_evaluator_public import Equation_evaluator
-import pandas as pd
 
 
 def construct_transformer_model(nb_samples, max_nb_var, model_basepath):
@@ -103,7 +102,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, model_basepath):
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name)
     dataX = DataX(data_query_oracle.get_vars_range_and_types())
     nvars = data_query_oracle.get_nvars()
-    regress_batchsize = 50
+    regress_batchsize = 500
     operators_set = data_query_oracle.get_operators_set()
     X_train = dataX.randn(sample_size=regress_batchsize).T
     print(X_train.shape)

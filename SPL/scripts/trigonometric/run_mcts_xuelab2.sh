@@ -10,7 +10,7 @@ nv=$2
 nt=$3
 num_episodes=10000
 
-thispath=$basepath/mcts_and_vsr_mcts
+thispath=$basepath/SPL
 data_path=$basepath/data/unencrypted/equations_trigometric
 opt=L-BFGS-B
 

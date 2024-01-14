@@ -1,14 +1,14 @@
 #!/usr/bin/zsh
 basepath=/home/jiang631/data/cvdso
 py3=/home/jiang631/miniconda3/envs/py310/bin/python3.10
-# Glycolytic_oscillator_d0
+
 type=Glycolytic_oscillator
 datapath=$basepath/data/differential_equations/
 opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
-metric_name=inv_mse
-n_cores=4
+metric_name=neg_mse
+num_episodes=10000
 set -x
 for prog in {0..6};
 do
@@ -21,9 +21,7 @@ do
 		echo "create output dir: $dump_dir"
 		mkdir -p $dump_dir
 	fi
-	for bsl in DSR; do
-		echo $basepath/cvDSO/config/config_regression_${bsl}.json
-		CUDA_VISIBLE_DEVICES="" nohup $py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${bsl}.json --equation_name $datapath/$eq_name \
-			--optimizer $opt --metric_name $metric_name --n_cores $n_cores --noise_type $noise_type --noise_scale $noise_scale >$dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out &
-	done
+	nohup $py3 $basepath/SPL/main.py --equation_name $datapath/$eq_name --optimizer $opt \
+		--num_episodes $num_episodes \
+		--metric_name $metric_name --noise_type $noise_type --noise_scale $noise_scale >$dump_dir/${type}_d${prog}.metric_${metric_name}.noise_${noise_type}${noise_scale}.opt$opt.spl.out &
 done

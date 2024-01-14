@@ -27,7 +27,7 @@ def run_ProGED(
     print(ED.fit_models())
     print(ED.get_results())
     print(ED.get_stats())
-    print("final hof")
+
 
 
 def ProGED(equation_name, metric_name, noise_type, noise_scale):

@@ -10,7 +10,7 @@ noise_scale=0.0
 metric_name=inv_mse
 n_cores=4
 set -x
-for prog in {0..3};
+for prog in {0..2};
 do
 	eq_name=${type}_d${prog}.in
     echo "submit $eq_name"

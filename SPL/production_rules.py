@@ -108,7 +108,7 @@ def get_n3_rules(nvars: int, non_terminal_node='A') -> list:
 def get_n4_rules(nvars: int, non_terminal_node='A') -> list:
     rules = []
     for i in range(nvars):
-        rules += get_ith_n5_rules(i, non_terminal_node)
+        rules += get_ith_n4_rules(i, non_terminal_node)
     return rules
 
 

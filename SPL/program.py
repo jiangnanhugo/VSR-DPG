@@ -71,6 +71,7 @@ class Program(object):
         t_optimized_constants, t_optimized_obj = 0, np.inf
         if num_changing_consts == 0:  # zero constant
             y_pred = execute(eq, data_X.T, input_var_Xs)
+            var_ytrue = np.var(y_true)
         elif num_changing_consts >= 20:  # discourage over complicated numerical estimations
             return -np.inf, eq, t_optimized_constants, t_optimized_obj
         else:

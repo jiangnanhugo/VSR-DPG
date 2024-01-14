@@ -11,7 +11,9 @@ if __name__ == '__main__':
     estimated = 0.124999999496695 * x * (x - 8.00000003873915) + 12.0000000191275
     mat = np.stack([x, y]).T
     generator = LoadGenerator("data/example_eqs.txt")
-    ed = EqDisco(data=mat, variable_names=["x", "y"], generator=generator, sample_size=100)
+    ed = EqDisco(data=mat,  lhs_vars=["y"],
+                 # list the variable on the left-hand side of each equation in the system of equations, should match columns names in data
+                 rhs_vars=['x'], generator=generator, sample_size=100)
     ed.generate_models()
     print(ed.models)
     ed.fit_models()
