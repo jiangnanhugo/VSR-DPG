@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
 basepath=/home/jiang631/data/cvdso
-py3=/home/jiang631/miniconda3/envs/py310/bin/python3.10
+py3=/home/$USER/miniconda3/envs/py310/bin/python3.10
 type=$1
 totalvars=$2
 datapath=$basepath/data/algebraic_equations/large_scale_${totalvars}

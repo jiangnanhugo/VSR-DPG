@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
 basepath=/depot/yexiang/apps/jiang631/data/cvdso
-py3=/home/jiang631/workspace/miniconda3/envs/py310/bin/python
+py3=/home/$USER/workspace/miniconda3/envs/py310/bin/python
 type=$1
 nv=$2
 nt=$3
