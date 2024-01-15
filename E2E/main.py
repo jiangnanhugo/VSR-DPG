@@ -69,7 +69,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
     X_test = dataX.randn(sample_size=regress_batchsize).T
     for i in range(20):
         est.fit(X_train, y_train)
-        replace_ops = {"add": "+", "mul": "*", "sub": "-", "pow": "**", "inv": "1/"}
+        replace_ops = {"add": "+", "mul": "*", "sub": "-", "pow": "**", "inv": "1/", 'nan':'1', 'inf': '1'}
         model_str = est.retrieve_tree(with_infos=True)["relabed_predicted_tree"].infix()
 
         for op, replace_op in replace_ops.items():
