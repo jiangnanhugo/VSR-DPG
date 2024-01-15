@@ -46,7 +46,7 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
 def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_filepath):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
-    model = torch.load(pretrained_model_filepath, map_location=torch.device('cpu'))
+    model = torch.load(pretrained_model_filepath, map_location=torch.device('cuda'))
 
     est = symbolicregression.model.SymbolicTransformerRegressor(
         model=model,
@@ -69,7 +69,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
     X_test = dataX.randn(sample_size=regress_batchsize).T
     for i in range(20):
         est.fit(X_train, y_train)
-        replace_ops = {"add": "+", "mul": "*", "sub": "-", "pow": "**", "inv": "1/", 'nan':'1', 'inf': '1'}
+        replace_ops = {"add": "+", "mul": "*", "sub": "-", "pow": "**", "inv": "1/", 'nan': '1', 'inf': '1'}
         model_str = est.retrieve_tree(with_infos=True)["relabed_predicted_tree"].infix()
 
         for op, replace_op in replace_ops.items():
@@ -83,7 +83,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
         dict_of_result = data_query_oracle._evaluate_all_losses(X_test, ypred_test)
         hof.append((sp.parse_expr(model_str), dict_of_result))
         # dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(expr_str)
-    hof = sorted(hof, key=lambda x: x[1]['neg_nmse'], reverse=True)
+    hof = sorted(hof, key=lambda x: x[1]['neg_nmse'], reverse=False)
     for expr, dict_of_result in hof:
         print('\t', expr)
         print('-' * 30)
