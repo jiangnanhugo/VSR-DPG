@@ -120,7 +120,7 @@ class Pendulum_on_cart(KnownEquation):
 @register_eq_class
 class Double_pendulum(KnownEquation):
     _eq_name = 'Double_pendulum'
-    _function_set = ['add', 'sub', 'mul', 'div', 'n2', 'n3', 'n4', 'const']
+    _function_set = ['add', 'sub', 'mul', 'div', 'n2', 'sin', 'cos', 'const']
     expr_obj_thres = 1e-6
 
     def __init__(self):

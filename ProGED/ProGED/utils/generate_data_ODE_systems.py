@@ -8,22 +8,27 @@ from scipy.integrate import solve_ivp, odeint
 
 warnings.filterwarnings("ignore")
 
+
 # MODEL EQUATIONS
 def VDP(t, x, p=[0.5]):
     return [1 * x[1],
             p[0] * (1 - x[0] ** 2) * x[1] - x[0]]
 
+
 def RAY(t, x):
     return [1 * x[0] - 1 * x[1] - 1 * x[0] ** 3,
             1 * x[0]]
+
 
 def POI(t, x):
     return [1 * x[0] - 1 * x[1] - 1 * x[0] * math.sqrt((x[0] ** 2) + (x[1] ** 2)),
             1 * x[0] + 1 * x[1] - 1 * x[1] * math.sqrt((x[0] ** 2) + (x[1] ** 2))]
 
+
 def STL(t, x):
-    return [1 * x[0] - 1 * x[1] - 1 * x[0]**3 - 1 * x[0]*x[1]**2,
-            1 * x[0] + 1 * x[1] - 1 * x[1]**3 - 1 * x[1]*x[0]**2]
+    return [1 * x[0] - 1 * x[1] - 1 * x[0] ** 3 - 1 * x[0] * x[1] ** 2,
+            1 * x[0] + 1 * x[1] - 1 * x[1] ** 3 - 1 * x[1] * x[0] ** 2]
+
 
 def lorenz(t, x, sigma=10, rho=28, beta=2.66667):
     return [
@@ -32,26 +37,85 @@ def lorenz(t, x, sigma=10, rho=28, beta=2.66667):
         x[0] * x[1] - beta * x[2],
     ]
 
-def lorenz_stable(t, x, sigma=10, rho=16,  beta=8/3):
+
+def lorenz_stable(t, x, sigma=10, rho=16, beta=8 / 3):
     return [
         sigma * (x[1] - x[0]),
         x[0] * (rho - x[2]) - x[1],
         x[0] * x[1] - beta * x[2],
     ]
 
+
+# yeast glycolysis model, note that there are many typos in the sindy-pi paper
+def Glycolytic(
+        t,
+        x,
+        c1=2.5,
+        c2=-100,
+        c3=13.6769,
+        d1=200,
+        d2=13.6769,
+        d3=-6,
+        d4=-6,
+        e1=6,
+        e2=-64,
+        e3=6,
+        e4=16,
+        f1=64,
+        f2=-13,
+        f3=13,
+        f4=-16,
+        f5=-100,
+        g1=1.3,
+        g2=-3.1,
+        h1=-200,
+        h2=13.6769,
+        h3=128,
+        h4=-1.28,
+        h5=-32,
+        j1=6,
+        j2=-18,
+        j3=-100,
+):
+    return [
+        c1 + c2 * x[0] * x[5] / (1 + c3 * x[5] ** 4),
+        d1 * x[0] * x[5] / (1 + d2 * x[5] ** 4) + d3 * x[1] - d4 * x[1] * x[6],
+        e1 * x[1] + e2 * x[2] + e3 * x[1] * x[6] + e4 * x[2] * x[5],
+        f1 * x[2] + f2 * x[3] + f3 * x[4] + f4 * x[2] * x[5] + f5 * x[3] * x[6],
+        g1 * x[3] + g2 * x[4],
+        h3 * x[2]
+        + h5 * x[5]
+        + h4 * x[2] * x[6]
+        + h1 * x[0] * x[5] / (1 + h2 * x[5] ** 4),
+        j1 * x[1] + j2 * x[1] * x[6] + j3 * x[3] * x[6],
+    ]
+
+
+# Cart on a pendulum
+def pendulum_on_cart(t, x, m=1, M=1, L=1, F=0, g=9.81):
+    return [
+        x[2],
+        x[3],
+        ((M + m) * g * np.sin(x[0]) - F * np.cos(x[0]) - m * L * np.sin(x[0]) * np.cos(x[0]) * x[2] ** 2) / (
+                    L * (M + m * np.sin(x[0]) ** 2)),
+        (m * L * np.sin(x[0]) * x[2] ** 2 + F - m * g * np.sin(x[0]) * np.cos(x[0])) / (M + m * np.sin(x[0]) ** 2),
+    ]
+
+
 def custom_func(t, x, sys_func):
     return [sys_func[i](*x) for i in range(len(sys_func))]
+
 
 def custom_func_with_time(t, x, sys_func):
     return [sys_func[i](*x, t) for i in range(len(sys_func))]
 
+
 # main function
 def generate_ODE_data(system, inits, **generation_settings):
-
     generation_settings_preset = {
-        "initial_time": 0,            # initial time
-        "simulation_step": 0.01,      # simulation step /s
-        "simulation_time": 50,        # simulation time (final time) /s
+        "initial_time": 0,  # initial time
+        "simulation_step": 0.01,  # simulation step /s
+        "simulation_time": 50,  # simulation time (final time) /s
         "rtol": 1e-12,
         "atol": 1e-12,
         "method": 'LSODA',
@@ -82,11 +146,12 @@ def generate_ODE_data(system, inits, **generation_settings):
     """
 
     X = odeint(system, inits, t,
-                 rtol=generation_settings["rtol"],
-                 atol=generation_settings["atol"],
-                 tfirst=True)
+               rtol=generation_settings["rtol"],
+               atol=generation_settings["atol"],
+               tfirst=True)
 
     return np.column_stack([t.reshape((len(t), 1)), X])
+
 
 if __name__ == "__main__":
 
@@ -122,4 +187,3 @@ if __name__ == "__main__":
 
             filename = '{}{}\\data_v{}_{}_init{}.csv'.format(data_path, isystem, data_version, isystem, str(idx_init))
             pd.DataFrame(data).to_csv(path_or_buf=filename, header=False, index=False)
-

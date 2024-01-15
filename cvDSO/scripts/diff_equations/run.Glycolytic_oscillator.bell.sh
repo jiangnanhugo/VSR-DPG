@@ -2,7 +2,7 @@
 basepath=/depot/yexiang/apps/jiang631/data/cvdso
 py3=/home/jiang631/workspace/miniconda3/envs/py310/bin/python
 
-type=Glycolytic_oscillator_d
+type=Glycolytic_oscillator
 datapath=$basepath/data/algebraic_equations/differential_equations
 opt=L-BFGS-B
 noise_type=normal
