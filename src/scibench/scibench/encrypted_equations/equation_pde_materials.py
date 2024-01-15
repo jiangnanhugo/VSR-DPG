@@ -101,7 +101,7 @@ class SpinodalDecomp64x64(KnownEquation):
 # @register_eq_class
 class GrainGrowth64x64(KnownEquation):
     _eq_name = 'Grain_Growth_64x64'
-    _function_set = ['add', 'sub', 'mul', 'clamp', 'laplacian', 'const']
+    _function_set = ['add', 'sub', 'mul', 'laplacian', 'const']
     expr_obj_thres = 0.01
     expr_consts_thres = None
     simulated_exec = True
@@ -121,26 +121,24 @@ class GrainGrowth64x64(KnownEquation):
 
         self.dt = 1e-2
 
-        vars_range_and_types = [LogUniformSampling2d(1e-3, 1.0, only_positive=True, dim=(self.Nx, self.Ny)),
-                                LogUniformSampling2d(1e-3, 1.0, only_positive=True, dim=(self.Nx, self.Ny))]
-        self.x = [MatrixSymbol('X_0', self.Nx, self.Ny)]
-        super().__init__(num_vars=1, vars_range_and_types=vars_range_and_types)
+        vars_range_and_types = [LogUniformSampling2d(1e-3, 1.0, only_positive=True, dim=(self.Nx, self.Ny)) for i in range(n_grains)]
+        # self.x = [MatrixSymbol('X_0', self.Nx, self.Ny)]
+        super().__init__(num_vars=n_grains, vars_range_and_types=vars_range_and_types)
         etas = self.x
 
         self.L = 5.0  # nn.Parameter(torch.randn(1) * 5 + 0.1, requires_grad=True)
         self.kappa = 0.1  # nn.Parameter(torch.randn(1) * 5 + 0.1, requires_grad=True)
 
         self.lap = LaplacianOp()
-        n_grain = len(etas)
         sum_eta_2 = sum(eta ** 2 for eta in etas)
 
-        etas_new = [None] * n_grain
+        etas_new = [None] * n_grains
 
-        for i in range(0, n_grain):
+        for i in range(n_grains):
             dfdeta = -self.A * etas[i] + self.B * (etas[i]) ** 3
 
             sq_sum = sum_eta_2 - (etas[i]) ** 2
             dfdeta += 2 * etas[i] * sq_sum
-            term1 = dfdeta - self.kappa * self.lap(etas[i], self.dx, self.dy)
+            term1 = dfdeta - self.kappa * np.sin(etas[i])# self.lap(etas[i], self.dx, self.dy)
             etas_new[i] = self.L * term1
         self.sympy_eq = etas_new

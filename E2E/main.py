@@ -43,10 +43,11 @@ def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
 @click.option('--noise_type', default='normal', type=str, help="")
 @click.option('--noise_scale', default=0.0, type=float, help="")
 @click.option('--pretrained_model_filepath', type=str, help="pertrained pytorch model filepath")
-def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_filepath):
+@click.option('--mode', type=str, default='cpu', help="cpu or cuda")
+def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_filepath, mode):
     """Runs DSO in parallel across multiple seeds using multiprocessing."""
 
-    model = torch.load(pretrained_model_filepath, map_location=torch.device('cuda'))
+    model = torch.load(pretrained_model_filepath, map_location=torch.device(mode))
 
     est = symbolicregression.model.SymbolicTransformerRegressor(
         model=model,
