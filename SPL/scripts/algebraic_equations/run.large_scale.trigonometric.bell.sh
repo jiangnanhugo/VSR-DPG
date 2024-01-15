@@ -40,7 +40,7 @@ hostname
 
 $py3 $basepath/SPL/main.py --equation_name $data_path/$eq_name --optimizer $opt  \
 	--num_episodes $num_episodes \
-	--metric_name $metric_name --noise_type $noise_type --noise_scale $noise_scale > $dump_dir/prog_${prog}.metric_${metric_name}.noise_${noise_type}${noise_scale}.opt$opt.spl.out
+	--metric_name $metric_name --noise_type $noise_type --noise_scale $noise_scale > $dump_dir/prog_${prog}_rand_$rand.metric_${metric_name}.noise_${noise_type}${noise_scale}.opt$opt.spl.out
 EOT
 	done
 done
