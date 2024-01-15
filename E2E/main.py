@@ -6,7 +6,7 @@ from scibench.symbolic_data_generator import *
 from scibench.symbolic_equation_evaluator_public import Equation_evaluator
 from sympy.parsing.sympy_parser import parse_expr
 from sympy import lambdify, Symbol
-
+import sys
 
 def execute(expr_str: str, data_X: np.ndarray, input_var_Xs):
     """
@@ -64,6 +64,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
     X_train = dataX.randn(sample_size=regress_batchsize).T
 
     print(X_train.shape)
+    sys.stdout.flush()
     y_train = data_query_oracle.evaluate(X_train)
     hof = []
     regress_batchsize = 256
@@ -78,7 +79,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
         for i in range(nvars):
             model_str = model_str.replace(f'x_{i}', f"X{i}")
         print(sp.parse_expr(model_str))
-
+        sys.stdout.flush()
         ypred_test = execute(model_str, X_test, input_var_Xs)
 
         dict_of_result = data_query_oracle._evaluate_all_losses(X_test, ypred_test)
