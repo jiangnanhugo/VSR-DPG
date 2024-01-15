@@ -27,12 +27,11 @@ do
 		echo "create dir: $log_dir"
 		mkdir -p $log_dir
 	fi
-	sbatch -A standby --nodes=1 --ntasks=1 --cpus-per-task=1 --gpus-per-node=1 <<EOT
+	sbatch -A standby --nodes=1 --ntasks=1 --gpus=1 <<EOT
 #!/bin/bash -l
 
 #SBATCH --job-name="E2E-${type}_nv${nv}_nt${nt}"
 #SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.e2e.out
-#SBATCH --constraint=A
 #SBATCH --time=3:59:00
 
 hostname
