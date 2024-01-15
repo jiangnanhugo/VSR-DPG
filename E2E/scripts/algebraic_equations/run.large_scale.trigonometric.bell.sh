@@ -27,7 +27,7 @@ for prog in {0..9}; do
 		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
 #!/bin/bash -l
 
-#SBATCH --job-name="DVSR-${type}${totalvars}_${prog}_${rand}"
+#SBATCH --job-name="E2E-${type}${totalvars}_${prog}_${rand}"
 #SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.e2e.out
 #SBATCH --constraint=A
 #SBATCH --time=48:00:00

@@ -14,6 +14,7 @@ Using conda and the environment.yml file:
 Also manually install a fork of sympytorch:
 
 ```
+pip install scikit-learn
 pip install numexpr
 pip install git+https://github.com/pakamienny/sympytorch
 ```
