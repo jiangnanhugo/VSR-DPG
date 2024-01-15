@@ -1,13 +1,10 @@
-import numpy as np
+import sympy
 import torch
-import torch.nn as nn
+
 from collections import OrderedDict
 from base import KnownEquation, LogUniformSampling, IntegerUniformSampling, UniformSampling, LogUniformSampling2d
 
 device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
-import os
-from sympy import MatrixSymbol, Matrix, Symbol
-from diff_ops import LaplacianOp, DifferentialOp
 
 EQUATION_CLASS_DICT = OrderedDict()
 
@@ -91,6 +88,104 @@ class Glycolytic_oscillator(KnownEquation):
             self.phi * self.kappa * (x[3] - x[6]) - self.K * x[6]
         ]
 
+
+@register_eq_class
+class Pendulum_on_cart(KnownEquation):
+    _eq_name = 'Pendulum_on_cart'
+    _function_set = ['add', 'sub', 'mul', 'div', 'n2', 'cos', 'sin', 'const']
+    expr_obj_thres = 1e-6
+
+    def __init__(self, m=1, M=1, L=1, F=0, g=9.81):
+        vars_range_and_types = [LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True)]
+        super().__init__(num_vars=4, vars_range_and_types=vars_range_and_types)
+        x = self.x
+
+        self.sympy_eq = [
+            x[2],
+            x[3],
+            (
+                    (M + m) * g * sympy.sin(x[0])
+                    - F * sympy.cos(x[0])
+                    - m * L * sympy.sin(x[0]) * sympy.cos(x[0]) * x[2] ** 2
+            ) / (
+                    L * (M + m * sympy.sin(x[0]) ** 2)
+            ),
+            (m * L * sympy.sin(x[0]) * x[2] ** 2 + F - m * g * sympy.sin(x[0]) * sympy.cos(x[0])) / (M + m * sympy.sin(x[0]) ** 2),
+        ]
+
+
+@register_eq_class
+class Double_pendulum(KnownEquation):
+    _eq_name = 'Double_pendulum'
+    _function_set = ['add', 'sub', 'mul', 'div', 'n2', 'n3', 'n4', 'const']
+    expr_obj_thres = 1e-6
+
+    def __init__(self):
+        m1 = 0.2704
+        m2 = 0.2056
+        a1 = 0.191
+        a2 = 0.1621
+        L1 = 0.2667
+        L2 = 0.2667
+        I1 = 0.003
+        I2 = 0.0011
+        g = 9.81
+        k1 = 0
+        k2 = 0
+
+        vars_range_and_types = [LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True)]
+        super().__init__(num_vars=4, vars_range_and_types=vars_range_and_types)
+        x = self.x
+
+        self.sympy_eq = [
+            x[2],
+            x[3],
+            (
+                    L1 * a2 ** 2 * g * m2 ** 2 * sympy.sin(x[0])
+                    - 2 * L1 * a2 ** 3 * x[3] ** 2 * m2 ** 2 * sympy.sin(x[0] - x[1])
+                    + 2 * I2 * L1 * g * m2 * sympy.sin(x[0])
+                    + L1 * a2 ** 2 * g * m2 ** 2 * sympy.sin(x[0] - 2 * x[1])
+                    + 2 * I2 * a1 * g * m1 * sympy.sin(x[0])
+                    - (L1 * a2 * x[2] * m2) ** 2 * sympy.sin(2 * (x[0] - x[1]))
+                    - 2 * I2 * L1 * a2 * x[3] ** 2 * m2 * sympy.sin(x[0] - x[1])
+                    + 2 * a1 * a2 ** 2 * g * m1 * m2 * sympy.sin(x[0])
+            ) / (
+                    2 * I1 * I2
+                    + (L1 * a2 * m2) ** 2
+                    + 2 * I2 * L1 ** 2 * m2
+                    + 2 * I2 * a1 ** 2 * m1
+                    + 2 * I1 * a2 ** 2 * m2
+                    - (L1 * a2 * m2) ** 2 * sympy.cos(2 * (x[0] - x[1]))
+                    + 2 * (a1 * a2) ** 2 * m1 * m2
+            ),
+            (a2 * m2 * (
+                    2 * I1 * g * sympy.sin(x[1])
+                    + 2 * L1 ** 3 * x[2] ** 2 * m2 * sympy.sin(x[0] - x[1])
+                    + 2 * L1 ** 2 * g * m2 * sympy.sin(x[1])
+                    + 2 * I1 * L1 * x[2] ** 2 * sympy.sin(x[0] - x[1])
+                    + 2 * a1 ** 2 * g * m1 * sympy.sin(x[1])
+                    + L1 ** 2 * a2 * x[3] ** 2 * m2 * sympy.sin(2 * (x[0] - x[1]))
+                    + 2 * L1 * a1 ** 2 * x[2] ** 2 * m1 * sympy.sin(x[0] - x[1])
+                    - 2 * L1 ** 2 * g * m2 * sympy.cos(x[0] - x[1]) * sympy.sin(x[0])
+                    - 2 * L1 * a1 * g * m1 * sympy.cos(x[0] - x[1]) * sympy.sin(x[0])
+            )) / (
+                    2 * (
+                    I1 * I2
+                    + (L1 * a2 * m2) ** 2
+                    + I2 * L1 ** 2 * m2
+                    + I2 * a1 ** 2 * m1
+                    + I1 * a2 ** 2 * m2
+                    - (L1 * a2 * m2) ** 2 * sympy.cos(x[0] - x[1]) ** 2
+                    + a1 ** 2 * a2 ** 2 * m1 * m2
+            )),
+        ]
+
 #
 # # ---------------------
 # # https://arxiv.org/pdf/2003.07140.pdf
@@ -114,7 +209,7 @@ class Glycolytic_oscillator(KnownEquation):
 #         # v1 − k1s1x1 + k−1x2,
 #         self.sympy_eqs = [
 #             v1 - self.k1 * x[0] * x[2] + k_neg1 * x[3],
-#             self.k2*x[1]-gamma*k3*s2**gamma*np.e+gmma *k_neg3*x[0] ]
+#             self.k2*x[1]-gamma*k3*s2**gamma*sympy.e+gmma *k_neg3*x[0] ]
 
 
 # # %Lotka–Volterra equation
@@ -155,9 +250,9 @@ class Glycolytic_oscillator(KnownEquation):
 #     def __init__(self, N):
 #         #  N is the total number of interacting species.
 #         #  For simplicity all self-interacting terms αii are often set to 1.
-#         alpha = np.random.rand(N, N)
-#         r = np.random.rand(N)
-#         np.fill_diagonal(alpha, 1.0)
+#         alpha = sympy.random.rand(N, N)
+#         r = sympy.random.rand(N)
+#         sympy.fill_diagonal(alpha, 1.0)
 #         #
 #         # vars_range_and_types = [LogUniformSampling(0.15, 1.6, only_positive=True),
 #         #                         LogUniformSampling(0.19, 2.16, only_positive=True),

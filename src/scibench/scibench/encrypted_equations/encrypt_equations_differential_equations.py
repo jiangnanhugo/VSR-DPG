@@ -45,7 +45,7 @@ def encrypt_equation(equation, output_eq_file, key_filename=None, is_encrypted=0
 def to_binary_expr_tree(expr):
     """convert a Sympy expression to a binary expression tree"""
     if isinstance(expr, Symbol):
-        return str(expr)
+        return [str(expr)]
     elif isinstance(expr, Float) or isinstance(expr, Integer) or isinstance(expr, Rational):
         return [expr]
     elif expr == sympy.pi:
@@ -80,8 +80,9 @@ def symbolic_equation_to_preorder_traversal(expr) -> List:
         if isinstance(S[0], list):
             return flatten(S[0]) + flatten(S[1:])
         return S[:1] + flatten(S[1:])
+    binary_tree=to_binary_expr_tree(expr)
 
-    preorder_traversal_expr = flatten(to_binary_expr_tree(expr))
+    preorder_traversal_expr = flatten(binary_tree)
     preorder_traversal_tuple = []
     for idx, it in enumerate(preorder_traversal_expr):
         if is_float(it):
@@ -136,6 +137,6 @@ def main(private_key_folder='./', key_filename="public.key", output_folder="./",
 
 if __name__ == '__main__':
     X_0, X_1, X_2, X_3, X_4, X_5, X_6, X_7, X_8, X_9, X_10, X_11, X_12 = symbols('X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12')
-    from equation_ode_glycolytic import *
+    from equation_odes import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/', folder_prefix='differential_equations')

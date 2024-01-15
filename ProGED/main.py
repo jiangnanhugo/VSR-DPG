@@ -5,8 +5,11 @@ import numpy as np
 from scibench.symbolic_data_generator import DataX
 from scibench.symbolic_equation_evaluator_public import Equation_evaluator
 import pandas as pd
-from ProGED import EqDisco
 
+from ProGED import EqDisco
+from ProGED.model_box import ModelBox
+from ProGED.parameter_estimation import fit_models
+from ProGED.configs import settings
 
 def run_ProGED(
         data,
@@ -14,19 +17,47 @@ def run_ProGED(
         generator_template_name
 ):
     ED = EqDisco(data=data,
+                 task_type="algebraic",
                  lhs_vars=["y"],
                  # list the variable on the left-hand side of each equation in the system of equations, should match columns names in data
                  rhs_vars=[f"X{i}" for i in range(nvars)],
                  # list the variables that can appear on the right-hand side of each equation, should match columns names in data
-                 sample_size=100,  # number of candidate equations to generate
+                 sample_size=10,  # number of candidate equations to generate
                  generator="grammar",  # optional, accepts instance of custom generator or grammar
                  generator_template_name=generator_template_name,
                  # name of grammar template if not using custom generator, common choices: polynomial, rational, universal
-                 verbosity=1)  # level of detail the program prints, 0 is silent besides warnings
+                 verbosity=4)  # level of detail the program prints, 0 is silent besides warnings
     print(ED.generate_models())
-    print(ED.fit_models())
-    print(ED.get_results())
-    print(ED.get_stats())
+
+    models = ModelBox()
+    for mi in ED.models:
+        models.add_model([str(xi) for xi in mi.expr], symbols={"x": [f"X{i}" for i in range(nvars)], "const": "C"})
+
+    settings['task_type'] = 'algebraic'
+    settings["parameter_estimation"]["task_type"] = 'algebraic'
+    settings["parameter_estimation"]["param_bounds"] = ((-5, 28),)
+    settings["objective_function"]["persistent_homology"] = True
+
+    weight = 0.70
+    settings["objective_function"]["persistent_homology_weight"] = weight
+    scale = 20
+
+    settings["optimizer_DE"]["max_iter"] = 50 * scale
+    settings["optimizer_DE"]["pop_size"] = scale
+    settings["optimizer_DE"]["verbose"] = True
+
+    start = time.time()
+    models = fit_models(models, data, settings=settings)
+    duration = time.time() - start
+    print(weight)
+    for i in range(len(models)):
+        params = list(models[i].params.values())
+        print(params, f'{weight}')
+        models[i].nice_print()
+
+    # print(ED.fit_models())
+    # print(ED.get_results())
+    # print(ED.get_stats())
 
 
 

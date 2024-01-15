@@ -1,15 +1,13 @@
 #!/usr/bin/zsh
-basepath=/home/jiangnan/PycharmProjects/cvdso
-py3=/home/jiangnan/miniconda3/bin/python
+basepath=/home/$USER/PycharmProjects/cvdso
+py3=/home/$USER/miniconda3/bin/python
 
 type=$1
 nv=$2
 nt=$3
 set -x
-opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
-metric_name=inv_nrmse
 datapath=$basepath/data/algebraic_equations/equations_trigonometric
 set -x
 for prog in {0..9};

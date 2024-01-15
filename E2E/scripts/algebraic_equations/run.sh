@@ -1,3 +1,4 @@
+./run.trigonometric.xuelab.sh sincos 2 11
 ./run.trigonometric.xuelab.sh sincos 3 22
 ./run.trigonometric.xuelab.sh sincos 4 46
 ./run.trigonometric.xuelab.sh sincos 5 55
