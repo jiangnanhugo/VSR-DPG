@@ -23,6 +23,6 @@ do
 		mkdir -p $dump_dir
 	fi
 	$py3 $basepath/E2E/main.py --equation_name $datapath/$eq_name \
-		--pretrained_model_filepath $basepath/E2E/model.pt \
-		--noise_type normal --noise_scale 0.0 #>$dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
+		--pretrained_model_filepath $basepath/E2E/model.pt --mode cuda\
+		--noise_type $noise_type --noise_scale $noise_scale #>$dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 done
