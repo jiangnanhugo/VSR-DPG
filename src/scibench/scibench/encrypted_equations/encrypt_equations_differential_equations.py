@@ -137,6 +137,9 @@ def main(private_key_folder='./', key_filename="public.key", output_folder="./",
 
 if __name__ == '__main__':
     X_0, X_1, X_2, X_3, X_4, X_5, X_6, X_7, X_8, X_9, X_10, X_11, X_12 = symbols('X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12')
-    from equation_odes import *
+    # from equation_odes import *
+
+    # main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/', folder_prefix='differential_equations')
+    from equation_pde_materials import *
 
     main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/', folder_prefix='differential_equations')

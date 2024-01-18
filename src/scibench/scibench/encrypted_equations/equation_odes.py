@@ -89,6 +89,32 @@ class Glycolytic_oscillator(KnownEquation):
         ]
 
 
+# Carbone and Veltri triadic MHD model
+@register_eq_class
+class mhd(KnownEquation):
+    _eq_name = 'mhd'
+    _function_set = ['add', 'sub', 'mul', 'div', 'const']
+    expr_obj_thres = 1e-6
+    def __init__(self, nu=0.1, mu=0.2, sigma=0.3):
+        vars_range_and_types = [LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True),
+                                LogUniformSampling(0.001, 10, only_positive=True)]
+        super().__init__(num_vars=6, vars_range_and_types=vars_range_and_types)
+        x = self.x
+
+        self.sympy_eq = [
+            -2 * nu * x[0] + 4.0 * (x[1] * x[2] - x[4] * x[5]),
+            -5 * nu * x[1] - 7.0 * (x[0] * x[2] - x[3] * x[5]),
+            -9 * nu * x[2] + 3.0 * (x[0] * x[1] - x[3] * x[4]),
+            -2 * mu * x[4] + 2.0 * (x[5] * x[1] - x[2] * x[4]),
+            -5 * mu * x[4] + sigma * x[5] + 5.0 * (x[2] * x[3] - x[0] * x[5]),
+            -9 * mu * x[5] + sigma * x[4] + 9.0 * (x[4] * x[0] - x[1] * x[3]),
+        ]
+
+
 @register_eq_class
 class Pendulum_on_cart(KnownEquation):
     _eq_name = 'Pendulum_on_cart'

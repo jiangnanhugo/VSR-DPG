@@ -201,9 +201,7 @@ if __name__ == '__main__':
     #
     # main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_livermore2')
 
-    from equation_pde_materials import *
 
-    main(output_folder='/home/jiangnan/PycharmProjects/cvdso/data/', folder_prefix='differential_equations')
     # from equations_feynman_extra import *
     #
     # main(output_folder='/home/jiangnan/PycharmProjects/scibench/data/', folder_prefix='equations_feynman_extra')
