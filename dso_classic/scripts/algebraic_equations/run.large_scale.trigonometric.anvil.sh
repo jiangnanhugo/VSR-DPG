@@ -33,7 +33,7 @@ for rand in {0..9}; do
 		echo $basepath/dso_classic/config/config_regression_${bsl}.json
 		echo $datapath/$eq_name
 		echo $dump_dir/${eq_name}.noise_${noise_type}${noise_scale}.opt${opt}.${bsl}
-		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=8 <<EOT
+		sbatch -A cis230379 --nodes=1 --ntasks=1 --cpus-per-task=8 <<EOT
 #!/bin/bash -l
 #SBATCH --job-name="$bsl-T${totalvars}_R${rand}"
 #SBATCH --output=$log_dir/${eq_name}.noise_${noise_type}_${noise_scale}.${bsl}.out
