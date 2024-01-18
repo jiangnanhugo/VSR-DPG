@@ -69,7 +69,7 @@
       "baseline" : "ewma_R",
       // Recommended to set this to as many cores as you can use! Especially if
       // using the "const" token.
-      "n_cores_batch" : 1,
+      "n_cores_batch" : 8,
       "save_all_epoch": true,
       "save_freq": 5
    },

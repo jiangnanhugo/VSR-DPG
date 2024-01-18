@@ -2,7 +2,7 @@
 basepath=/home/jiangnan/PycharmProjects/cvdso
 py3=/home/jiangnan/miniconda3/bin/python
 #
-type=Lorenz
+type=mhd
 datapath=$basepath/data/differential_equations/
 opt=L-BFGS-B
 noise_type=normal
@@ -10,7 +10,7 @@ noise_scale=0.0
 metric_name=neg_mse
 num_episodes=10000
 set -x
-for prog in {0..2}; do
+for prog in {0..5}; do
 	eq_name=${type}_d${prog}.in
 	echo "submit $eq_name"
 

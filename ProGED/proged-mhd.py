@@ -9,22 +9,22 @@ from ProGED.equation_discoverer import EqDisco
 
 np.random.seed(0)
 
-nvars = 7
+nvars = 6
 generation_settings = {
     "initial_time": 0,  # initial time
     "simulation_step": 0.001,  # simulation step /s
     "simulation_time": 10,  # simulation time (final time) /s
 }
 
-data = generate_ODE_data(system='Glycolytic', inits=np.random.randn(nvars),
+data = generate_ODE_data(system='mhd', inits=np.random.randn(nvars),
                          **generation_settings)
-data = pd.DataFrame(data, columns=['t', 'x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6'])
+data = pd.DataFrame(data, columns=['t', 'x0', 'x1', 'x2', 'x3', 'x4', 'x5',])
 
 ED = EqDisco(data=data,
              task_type="differential",
-             lhs_vars=["d_x0", "d_x1", "d_x2", 'd_x3', 'd_x4', 'd_x5', 'd_x6'],
+             lhs_vars=["d_x0", "d_x1", "d_x2", 'd_x3', 'd_x4', 'd_x5'],
              system_size=nvars,
-             rhs_vars=["x0", "x1", "x2", 'x3', 'x4', 'x5', 'x6'],
+             rhs_vars=["x0", "x1", "x2", 'x3', 'x4', 'x5'],
              generator="grammar",
              generator_template_name="universal",
              sample_size=100,
@@ -34,7 +34,7 @@ ED.generate_models()
 
 models = ModelBox()
 for mi in ED.models:
-    models.add_model([str(xi) for xi in mi.expr], symbols={"x": ["x0", "x1", "x2", 'x3', 'x4', 'x5', 'x6'], "const": "C"})
+    models.add_model([str(xi) for xi in mi.expr], symbols={"x": ["x0", "x1", "x2", 'x3', 'x4', 'x5'], "const": "C"})
 
 settings['task_type'] = 'differential'
 settings["parameter_estimation"]["task_type"] = 'differential'

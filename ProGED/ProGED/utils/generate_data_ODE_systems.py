@@ -110,6 +110,17 @@ def custom_func_with_time(t, x, sys_func):
     return [sys_func[i](*x, t) for i in range(len(sys_func))]
 
 
+# Carbone and Veltri triadic MHD model
+def mhd(t, x, nu=0.0, mu=0.0, sigma=0.0):
+    return [
+        -2 * nu * x[0] + 4.0 * (x[1] * x[2] - x[4] * x[5]),
+        -5 * nu * x[1] - 7.0 * (x[0] * x[2] - x[3] * x[5]),
+        -9 * nu * x[2] + 3.0 * (x[0] * x[1] - x[3] * x[4]),
+        -2 * mu * x[4] + 2.0 * (x[5] * x[1] - x[2] * x[4]),
+        -5 * mu * x[4] + sigma * x[5] + 5.0 * (x[2] * x[3] - x[0] * x[5]),
+        -9 * mu * x[5] + sigma * x[4] + 9.0 * (x[4] * x[0] - x[1] * x[3]),
+    ]
+
 # main function
 def generate_ODE_data(system, inits, **generation_settings):
     generation_settings_preset = {

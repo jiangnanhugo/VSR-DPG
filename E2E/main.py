@@ -69,7 +69,7 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
     hof = []
     regress_batchsize = 256
     X_test = dataX.randn(sample_size=regress_batchsize).T
-    for i in range(1):
+    for i in range(5):
         est.fit(X_train, y_train)
         replace_ops = {"add": "+", "mul": "*", "sub": "-", "pow": "**", "inv": "1/", 'nan': '1', 'inf': '1'}
         model_str = est.retrieve_tree(with_infos=True)["relabed_predicted_tree"].infix()
@@ -79,10 +79,15 @@ def main(equation_name, metric_name, noise_type, noise_scale, pretrained_model_f
         for i in range(nvars):
             model_str = model_str.replace(f'x_{i}', f"X{i}")
         print(sp.parse_expr(model_str))
+
         sys.stdout.flush()
         ypred_test = execute(model_str, X_test, input_var_Xs)
 
         dict_of_result = data_query_oracle._evaluate_all_losses(X_test, ypred_test)
+        print('+' * 30)
+        for mertic_name in dict_of_result:
+            print(f"{mertic_name} {dict_of_result[mertic_name]}")
+        print('+' * 30)
         hof.append((sp.parse_expr(model_str), dict_of_result))
         # dict_of_result['tree_edit_distance'] = self.task.data_query_oracle.compute_normalized_tree_edit_distance(expr_str)
     hof = sorted(hof, key=lambda x: x[1]['neg_nmse'], reverse=False)
