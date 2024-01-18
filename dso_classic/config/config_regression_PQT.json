@@ -61,7 +61,7 @@
    // Only the key training hyperparameters are listed here. See
    // config_common.json for the full list.
    "training" : {
-      "n_samples":15000,
+      "n_samples":256000,
       "batch_size" : 256,
       "epsilon" : 0.02,
       // <R> is the sample average _after_ epsilon sub-sampling and  R_e is the (1-epsilon)-quantile estimate.
