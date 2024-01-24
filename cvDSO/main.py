@@ -25,6 +25,15 @@ threshold_values = {
 }
 
 
+def extract_all_relevant_variables(grammar_model, total_navrs):
+    relevant_variables = []
+    for round_idx in range(total_navrs):
+        start_symbols, _ = grammar_model.freeze_equations("",
+                                                          [],
+                                                          round_idx + 1)
+    return relevant_variables
+
+
 @click.command()
 @click.argument('config_template', default="")
 @click.option('--equation_name', default=None, type=str, help="Name of equation")
@@ -93,7 +102,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
 
         model.setup()
 
-        if nt_nodes[0] in start_symbols[0]:
+        if nt_nodes[0] in start_symbols[0] and num_iterations[round_idx]:
             print("training starting......")
             best_expressions = model.train(
                 threshold_values[metric_name]['reward_threshold'],
