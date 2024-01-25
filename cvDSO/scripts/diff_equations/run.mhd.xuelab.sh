@@ -2,7 +2,7 @@
 basepath=/home/jiang631/data/cvdso
 py3=/home/jiang631/miniconda3/envs/py310/bin/python3.10
 #
-type=Pendulum_on_cart
+type=mhd
 datapath=$basepath/data/differential_equations/
 opt=L-BFGS-B
 noise_type=normal
