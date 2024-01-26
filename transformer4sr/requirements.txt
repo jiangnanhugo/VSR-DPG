@@ -1,6 +1,0 @@
-numpy
-python_Levenshtein==0.23.0
-PyYAML==6.0
-sympy==1.12
-torch==2.0.1
-zss==1.2.0
