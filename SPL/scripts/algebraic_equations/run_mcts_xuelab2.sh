@@ -3,8 +3,8 @@ set -x
 
 
 
-basepath=/home/jiang631/data/scibench
-py3=/home/jiang631/miniconda3/envs/py310/bin/python3.10
+basepath=/home/$USER/data/scibench
+py3=/home/$USER/miniconda3/envs/py310/bin/python3.10
 type=$1
 nv=$2
 nt=$3

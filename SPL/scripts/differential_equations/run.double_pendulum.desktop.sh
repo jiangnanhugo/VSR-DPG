@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
-basepath=/home/jiangnan/PycharmProjects/cvdso
-py3=/home/jiangnan/miniconda3/bin/python
+basepath=/home/$USER/PycharmProjects/cvdso
+py3=/home/$USER/miniconda3/bin/python
 #
 type=Double_pendulum
 datapath=$basepath/data/differential_equations
