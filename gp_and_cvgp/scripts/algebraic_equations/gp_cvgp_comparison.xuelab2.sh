@@ -1,8 +1,8 @@
 #!/usr/bin/zsh
 
 
-basepath=/home/jiang631/data/scibench
-py310=/home/jiang631/miniconda3/envs/py310/bin/python3.10
+basepath=/home/$USER/data/scibench
+py310=/home/$USER/miniconda3/envs/py310/bin/python3.10
 
 type=$1
 nv=$2

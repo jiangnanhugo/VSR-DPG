@@ -1,4 +1,4 @@
-basepath=/home/jiangnan/PycharmProjects/scibench
+basepath=/home/$USER/PycharmProjects/scibench
 
 outputdir=$basepath/result/lorenz/$(date +%F)
 if [ ! -d "$outputdir" ]; then

@@ -1,5 +1,5 @@
 #!/usr/bin/zsh
-basepath=/depot/yexiang/apps/jiang631/data/cvdso
+basepath=/home/$USER/data/cvdso
 py3=/home/$USER/workspace/miniconda3/envs/py310/bin/python
 type=$1
 nv=$2

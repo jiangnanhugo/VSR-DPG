@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
-basepath=/home/jiang631/data/cvdso
-py3=/home/jiang631/miniconda3/envs/py310/bin/python3.10
+basepath=/home/$USER/data/cvdso
+py3=/home/$USER/miniconda3/envs/py310/bin/python3.10
 # Glycolytic_oscillator_d0
 type=Glycolytic_oscillator
 datapath=$basepath/data/differential_equations/

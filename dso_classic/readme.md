@@ -34,8 +34,3 @@ pip install -e ./dso
 ./dso/scripts/run_dsr_pqt_vpg_gpmeld.sh
 ```
 
-If you want to run DSR, PQT, VPG, GPMeld on **Noisy** datasets.
-
-```bash
-./dso/scripts/noisy_run_dsr_pqt_vpg_gpmeld.sh
-```

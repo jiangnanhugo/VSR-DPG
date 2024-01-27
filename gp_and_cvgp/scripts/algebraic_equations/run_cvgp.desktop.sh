@@ -2,8 +2,8 @@
 
 
 
-basepath=/home/jiangnan/PycharmProjects/scibench/
-py3=/home/jiangnan/miniconda3/bin/python
+basepath=/home/$USER/PycharmProjects/scibench/
+py3=/home/$USER/miniconda3/bin/python
 
 type=$1
 nv=$2

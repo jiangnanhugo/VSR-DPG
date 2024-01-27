@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
-basepath=/depot/yexiang/apps/jiang631/data/scibench
-py310=/home/jiang631/workspace/miniconda3/envs/py310/bin/python3
+basepath=/home/$USER/data/scibench
+py310=/home/$USER/workspace/miniconda3/envs/py310/bin/python3
 type=$1
 nv=$2
 nt=$3

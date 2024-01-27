@@ -1,7 +1,7 @@
 #!/usr/bin/zsh
 
-basepath=/depot/yexiang/apps/jiang631/data/scibench
-py37=/home/jiang631/workspace/miniconda3/envs/py37/bin/python
+basepath=/home/$USER/data/scibench
+py37=/home/$USER/workspace/miniconda3/envs/py37/bin/python
 type=$1
 nv=$2
 nt=$3
