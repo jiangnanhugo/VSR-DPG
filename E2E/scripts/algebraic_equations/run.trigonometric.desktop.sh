@@ -1,6 +1,5 @@
 #!/usr/bin/zsh
 basepath=/home/$USER/PycharmProjects/cvdso
-#py3=/home/$USER/miniconda3/envs/symbolicregression/bin/python
 py3=/home/$USER/miniconda3/bin/python
 
 type=$1

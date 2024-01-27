@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
-basepath=/home/jiang631/data/cvdso
-py3=/home/jiang631/miniconda3/envs/py310/bin/python3.10
+basepath=/home/$USER/data/cvdso
+py3=/home/$USER/miniconda3/envs/py310/bin/python3.10
 #
 type=Lorenz
 datapath=$basepath/data/differential_equations/
