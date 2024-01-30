@@ -6,6 +6,12 @@ from odeformer.metrics import r2_score
 from scipy.integrate import solve_ivp
 
 
+# ignore user warnings
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+np.random.seed(1000)  # Seed for reproducibility
 def get_lorenz_data():
     t_train = np.linspace(0.0001, 10, 500)
     x0 = np.random.rand(3)
@@ -27,12 +33,6 @@ def get_mhd_data():
     return t_train, x_train
 
 
-# ignore user warnings
-import warnings
-
-warnings.filterwarnings("ignore", category=UserWarning)
-
-np.random.seed(1000)  # Seed for reproducibility
 
 dstr = SymbolicTransformerRegressor(from_pretrained=True)
 

@@ -7,10 +7,6 @@ The code is based on the repository [Deep Learning for Symbolic Mathematics](htt
 Most of the code specific to recurrent sequences lies in the folder ```src/envs```.
 
 ## Install dependencies 
-Using conda and the environment.yml file:
-
-```conda env create --name symbolic regression --file=environment.yml```
-
 Also manually install a fork of sympytorch:
 
 ```
@@ -65,6 +61,3 @@ If you want to reuse this material, please considering citing the following:
 }
 ```
 
-## License
-
-The majority of this repository is released under the Apache 2.0 license as found in the LICENSE file.
