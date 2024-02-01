@@ -21,7 +21,7 @@ import sys
 
 class VSRDeepSymbolicRegression(object):
     """
-    Control variable for Deep symbolic optimization model. Includes model hyperparameters and
+    Control variable for Deep symbolic optimization. Includes model hyperparameters and
     training configuration.
     """
 

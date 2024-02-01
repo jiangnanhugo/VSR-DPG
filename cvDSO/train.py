@@ -20,14 +20,8 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 """
   
     sess : tf.Session. TensorFlow Session object.
-    expression_decoder : dso.expression_decoder.ExpressionDecoder. ExpressionDecoder object used to generate Programs.
+    expression_decoder : ExpressionDecoder. ExpressionDecoder object used to generate Programs.
 
-    pool : multiprocessing.Pool or None
-        Pool to parallelize reward computation. For the control task, each
-        worker should have its own TensorFlow model. If None, a Pool will be
-        generated if n_cores_batch > 1.
-
-    output_file : str or None. Path to save results each step.
     n_epochs : int or None, optional. Number of epochs to train when n_samples is None.
 
     n_samples : int or None, optional
@@ -231,14 +225,9 @@ def learn(grammar_model: ContextSensitiveGrammar,
             else:  # Empirical quantile
                 quantile = np.quantile(r, 1 - epsilon, interpolation="higher")
 
-            # These guys can contain the GP solutions if we run GP
             '''
                 Here we get the returned as well as stored programs and properties.
 
-                If we are returning the GP programs to the controller, p and r will be exactly the same
-                as p_train and r_train. Othewrwise, p and r will still contain the GP programs so they
-                can still fall into the hall of fame. p_train and r_train will be different and no longer
-                contain the GP program items.
             '''
 
             keep = r >= quantile

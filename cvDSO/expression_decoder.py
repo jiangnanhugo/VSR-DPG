@@ -1,4 +1,3 @@
-"""Controller used to generate distribution over hierarchical, variable-length objects."""
 
 import tensorflow as tf
 import numpy as np
@@ -40,12 +39,11 @@ class LinearWrapper:
 
 class NeuralExpressionDecoder(object):
     """
-    Recurrent neural network (RNN) used to generate expressions. Specifically, the RNN outputs a distribution over the production rules
-    of symbolic expression. It is trained using REINFORCE with baseline.
+    Recurrent neural network (RNN) used to generate expressions. Specifically, the RNN outputs a distribution over the
+    production rules of symbolic expression. It is trained using REINFORCE with baseline.
 
     sess : tf.Session. TenorFlow Session object.
     input_embedding_layer:  Object that handles the state features to be used
-    summary : bool.  Write tensorboard summaries?
     debug : int. Debug level. 0: No debug. 1: Print shapes and number of parameters for each variable.
     max_length : int.  Maximum sequence length.
     """

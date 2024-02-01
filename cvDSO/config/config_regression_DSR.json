@@ -40,8 +40,8 @@
       "pqt_use_pg" : false,
       // RNN architectural hyperparameters.
       "cell" : "lstm",
-      "num_layers" : 1,
-      "num_units" : 128,
+      "num_layers" : 3,
+      "num_units" : 512,
       "debug": 2
    }
 }

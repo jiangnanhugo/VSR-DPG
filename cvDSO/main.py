@@ -1,5 +1,3 @@
-"""Parallelized, single-point launch script to run DSO on a set of benchmarks."""
-
 import time
 import click
 
@@ -45,7 +43,6 @@ def extract_all_relevant_variables(grammar_model, total_navrs):
 @click.option('--num_per_rounds', default=20, help="Number of iterations per rounds")
 @click.option('--n_cores', default=1, help="Number of cores for parallel evaluation")
 def main(config_template, optimizer, equation_name, metric_name, noise_type, noise_scale, max_len, num_per_rounds, n_cores):
-    """Runs DSO in parallel across multiple seeds using multiprocessing."""
     config = load_config(config_template)
     config['task']['metric'] = metric_name
     data_query_oracle = Equation_evaluator(equation_name, noise_type, noise_scale, metric_name=metric_name)
@@ -68,7 +65,7 @@ def main(config_template, optimizer, equation_name, metric_name, noise_type, noi
     nt_nodes = ['A']
     start_symbols = ['A']
     best_expressions = None
-    # Start training
+
     best_expressions_Q = []
     stand_alone_constants = []
     g_start = time.time()
