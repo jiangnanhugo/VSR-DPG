@@ -9,7 +9,7 @@ opt=L-BFGS-B
 noise_type=normal
 noise_scale=0.0
 metric_name=inv_nrmse
-
+n_cores=8
 for prog in {0..9};
 do
 	eq_name=${type}_nv${nv}_nt${nt}_prog_${prog}.in
@@ -29,7 +29,7 @@ do
 	fi
 	for bsl in DSR; do
 		echo $basepath/cvDSO/config/config_regression_${bsl}.json
-		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=1 <<EOT
+		sbatch -A yexiang --nodes=1 --ntasks=1 --cpus-per-task=$n_cores <<EOT
 #!/bin/bash -l
 
 #SBATCH --job-name="cvDSO-${type}${nv}${nt}${prog}"
@@ -41,7 +41,7 @@ do
 hostname
 
 $py3 $basepath/cvDSO/main.py $basepath/cvDSO/config/config_regression_${bsl}.json --equation_name $datapath/$eq_name \
---optimizer $opt --metric_name $metric_name \
+--optimizer $opt --metric_name $metric_name --n_cores $n_cores \
 --noise_type $noise_type --noise_scale $noise_scale  >  $dump_dir/prog_${prog}.noise_${noise_type}${noise_scale}.opt$opt.${bsl}.cvdso.out
 
 EOT
