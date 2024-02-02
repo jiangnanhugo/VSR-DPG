@@ -38,15 +38,4 @@ Just open the `result` and `plots` folders.
 
 
 
-## Citation
-
-If you want to reuse this material, please considering citing the following:
-```
-@article{kamienny2022end,
-  title={End-to-end symbolic regression with transformers},
-  author={Kamienny, Pierre-Alexandre and d'Ascoli, St{\'e}phane and Lample, Guillaume and Charton, Fran{\c{c}}ois},
-  journal={arXiv preprint arXiv:2204.10532},
-  year={2022}
-}
-```
 
