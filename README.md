@@ -4,8 +4,8 @@
 
 ### Dataset
 
-- `data`: the generated dataset. Every file represent a ground-truth expression.
-- `src/scibench`: the dataoracle API to draw data.
+- `data`: the generated dataset. Every file represents a ground-truth expression.
+- `src/scibench`: the data oracle API to draw data.
 
 #### Prerequisite of using these methods
 - install the dependency package
