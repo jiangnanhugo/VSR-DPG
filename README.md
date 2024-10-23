@@ -17,6 +17,12 @@ pip install -r requirements.txt
 cd src/scibench
 pip install -e .
 ```
+- to run our cvDSO program, you need to install a package `grammar` at the location: `VSR-DPG/cvDSO/src/`.
+
+```python
+cd cvDSO/src/
+pip install -e .
+```
 
 ### Methods
 - `cvDSO`: the proposed method.
@@ -24,7 +30,7 @@ pip install -e .
 - `SPL`: symbolic physics learner, from https://github.com/isds-neu/SymbolicPhysicsLearner.
 - `E2E`: End to end transformer for symbolic regression, from https://github.com/facebookresearch/symbolicregression.
 - `gp_and_cvgp`: genetic programming  (GP) and VSR-GP algorithm, from https://github.com/jiangnanhugo/cvgp
-- `dso_classic`: the codebase for DSR, VPG, PQT and GPMeld, from https://github.com/dso-org/deep-symbolic-optimization
+- `dso_classic`: the codebase for DSR, VPG, PQT, and GPMeld, from https://github.com/dso-org/deep-symbolic-optimization
 - `odeformer`:
 
 #### Extra
