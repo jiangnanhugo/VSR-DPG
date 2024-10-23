@@ -1,3 +1,6 @@
+to run this program, you need to install a package `grammar` at location: `VSR-DPG/cvDSO/src/`.
 
-We migrate the old code that relies on tensorflow 1.15 to latest tensorflow 2.15.
-
+```python
+cd cvDSO/src/
+pip install -e .
+```
