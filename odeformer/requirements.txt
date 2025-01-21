@@ -4,7 +4,7 @@ matplotlib==3.7.1
 numba==0.56.4
 numbakit-ode==0.5
 numbalsoda==0.3.4
-numexpr==2.8.4
+numexpr==2.8.5
 numpy==1.23.5
 pandas==2.0.0
 pmlb @ git+https://github.com/EpistasisLab/pmlb.git
